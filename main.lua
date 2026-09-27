@@ -1,9 +1,3 @@
---[[
-    Waifu Hub — Premium Edition (V8)
-    Target: Roblox Studio / Luau Engine
-    Features: Modular Architecture, TweenService UI/UX, RunService event-driven logic, Universal Movement, Aimbot FOV/Raycast, Highlight ESP
-]]
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
