@@ -1,1199 +1,764 @@
---[[
-    Waifu Hub — Premium Edition (V8 Expanded)
-    Target: Roblox Studio / Luau Engine
-    Features:
-      - Modular Architecture & Event Connection Pooling
-      - TweenService UI/UX with Draggable Windows & Custom Animations
-      - Universal Movement (Noclip, Flight, Infinite Jump, Speed Slider)
-      - Teleport System (Select Player & Warp)
-      - Fling Physics Controller
-      - Custom Animations & Dances (Infinite Yield Style)
-      - X-Ray Vision (Wall Transparency Engine)
-      - Combat System (Aimbot FOV, Raycast Visibility)
-      - MM2 Suite (Role ESP: Murderer/Sheriff/Innocent, Coin ESP, Auto Gun Grab)
-]]
+-- ==========================================
+-- WAIFU HUB V8 (ULTIMATE EDITION)
+-- ==========================================
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local Player = Players.LocalPlayer
 
-local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
-local Mouse = LocalPlayer:GetMouse()
+-- Configurações de Cor & Tema
+local COLOR_BG = Color3.fromRGB(15, 15, 15)
+local COLOR_PURPLE = Color3.fromRGB(148, 0, 211)
+local COLOR_TEXT = Color3.fromRGB(255, 255, 255)
+local COLOR_DARK = Color3.fromRGB(25, 25, 25)
+local COLOR_CLOSE = Color3.fromRGB(200, 50, 50)
 
--- ====================================================================
--- CONFIGURAÇÃO GLOBAL & ESTADO
--- ====================================================================
-local HubState = {
-    Theme = {
-        Background = Color3.fromRGB(15, 15, 22),
-        Sidebar = Color3.fromRGB(22, 22, 32),
-        Card = Color3.fromRGB(28, 28, 40),
-        Accent = Color3.fromRGB(148, 0, 211),
-        AccentGlow = Color3.fromRGB(180, 50, 255),
-        Text = Color3.fromRGB(245, 245, 250),
-        TextDim = Color3.fromRGB(150, 150, 170),
-        Murderer = Color3.fromRGB(255, 40, 40),
-        Sheriff = Color3.fromRGB(40, 140, 255),
-        Innocent = Color3.fromRGB(40, 255, 120),
-        Hero = Color3.fromRGB(255, 220, 0),
-        Border = Color3.fromRGB(148, 0, 211)
-    },
-    Assets = {
-        WaifuImageId = "rbxassetid://135247969077372"
-    },
-    Movement = {
-        Speed = 16,
-        DefaultSpeed = 16,
-        SpeedActive = false,
-        FlightSpeed = 50,
-        FlightActive = false,
-        NoclipActive = false,
-        InfiniteJumpActive = false
-    },
-    Fling = {
-        Active = false,
-        TargetPlayer = nil
-    },
-    Combat = {
-        AimbotActive = false,
-        TargetPart = "Head",
-        FOV = 120,
-        Smoothness = 0.2,
-        TeamCheck = false,
-        VisibilityCheck = true,
-        FOVCircleVisible = true
-    },
-    Visuals = {
-        PlayerESP = false,
-        XRayActive = false
-    },
-    MM2 = {
-        RoleESP = false,
-        CoinESP = false,
-        AutoGrabGun = false
-    },
-    Animation = {
-        CurrentTrack = nil
-    }
+-- ==========================================
+-- CONSTRUÇÃO DA UI PRINCIPAL
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MyWaifuHubV8"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game:GetService("CoreGui") or Player.PlayerGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 520, 0, 500)
+MainFrame.Position = UDim2.new(0.5, -260, 0.5, -250)
+MainFrame.BackgroundColor3 = COLOR_BG
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = COLOR_PURPLE
+MainStroke.Thickness = 2
+MainStroke.Parent = MainFrame
+
+-- Imagem da Waifu (Lado Direito)
+local WaifuImage = Instance.new("ImageLabel")
+WaifuImage.Size = UDim2.new(0, 210, 0, 480)
+WaifuImage.Position = UDim2.new(0, 300, 0, 10)
+WaifuImage.BackgroundColor3 = Color3.new(0, 0, 0)
+WaifuImage.Image = "rbxassetid://135247969077372"
+WaifuImage.ScaleType = Enum.ScaleType.Crop
+WaifuImage.Parent = MainFrame
+
+Instance.new("UICorner", WaifuImage).CornerRadius = UDim.new(0, 10)
+local ImageStroke = Instance.new("UIStroke")
+ImageStroke.Color = COLOR_PURPLE
+ImageStroke.Thickness = 1
+ImageStroke.Parent = WaifuImage
+
+-- Botão de Fechar
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 10)
+CloseBtn.BackgroundColor3 = COLOR_DARK
+CloseBtn.TextColor3 = COLOR_CLOSE
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 16
+CloseBtn.Text = "X"
+CloseBtn.ZIndex = 5
+CloseBtn.Parent = MainFrame
+
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", CloseBtn).Color = COLOR_CLOSE
+
+-- Título
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 280, 0, 40)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.TextColor3 = COLOR_PURPLE
+Title.TextSize = 22
+Title.Font = Enum.Font.GothamBold
+Title.Text = "Waifu Hub V8"
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+-- ==========================================
+-- SISTEMA DE ABAS (TABS)
+-- ==========================================
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(0, 280, 0, 30)
+TabContainer.Position = UDim2.new(0, 10, 0, 45)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = MainFrame
+
+local TabListLayout = Instance.new("UIListLayout")
+TabListLayout.FillDirection = Enum.FillDirection.Horizontal
+TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabListLayout.Padding = UDim.new(0, 5)
+TabListLayout.Parent = TabContainer
+
+local function CreateTabFrame(name)
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Name = name
+	scroll.Size = UDim2.new(0, 290, 0, 410)
+	scroll.Position = UDim2.new(0, 10, 0, 80)
+	scroll.BackgroundTransparency = 1
+	scroll.ScrollBarThickness = 4
+	scroll.Visible = false
+	scroll.Parent = MainFrame
+	
+	local layout = Instance.new("UIListLayout")
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 8)
+	layout.Parent = scroll
+	
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+	end)
+	
+	return scroll
+end
+
+local Tabs = {
+	Universal = CreateTabFrame("Universal"),
+	Murder = CreateTabFrame("Murder"),
+	Jailbreak = CreateTabFrame("Jailbreak")
 }
+Tabs.Universal.Visible = true
 
--- ====================================================================
--- POOL DE EVENTOS & CONEXÕES
--- ====================================================================
-local ConnectionPool = {}
+local TabButtons = {}
 
-local function RegisterLoop(tag, connection)
-    if ConnectionPool[tag] then
-        ConnectionPool[tag]:Disconnect()
-    end
-    ConnectionPool[tag] = connection
+local function SelectTab(tabName)
+	for name, frame in pairs(Tabs) do frame.Visible = (name == tabName) end
+	for name, btn in pairs(TabButtons) do
+		if name == tabName then
+			btn.BackgroundColor3 = COLOR_PURPLE
+			btn.TextColor3 = COLOR_TEXT
+		else
+			btn.BackgroundColor3 = COLOR_DARK
+			btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+		end
+	end
 end
 
-local function DropLoop(tag)
-    if ConnectionPool[tag] then
-        ConnectionPool[tag]:Disconnect()
-        ConnectionPool[tag] = nil
-    end
+local function CreateTabButton(name)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 90, 1, 0)
+	btn.BackgroundColor3 = COLOR_DARK
+	btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 12
+	btn.Text = name
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+	btn.Parent = TabContainer
+	
+	btn.MouseButton1Click:Connect(function() SelectTab(name) end)
+	TabButtons[name] = btn
 end
 
--- ====================================================================
--- MÓDULO DE FÍSICA & MOVIMENTAÇÃO UNIVERSAL
--- ====================================================================
-local MovementEngine = {}
+CreateTabButton("Universal")
+CreateTabButton("Murder")
+CreateTabButton("Jailbreak")
+SelectTab("Universal")
 
-function MovementEngine.SetNoclip(enabled)
-    HubState.Movement.NoclipActive = enabled
-    if enabled then
-        RegisterLoop("Core_Noclip", RunService.Stepped:Connect(function()
-            local char = LocalPlayer.Character
-            if char then
-                for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end))
-    else
-        DropLoop("Core_Noclip")
-        local char = LocalPlayer.Character
-        if char then
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    part.CanCollide = true
-                end
-            end
-        end
-    end
+-- ==========================================
+-- FUNÇÕES CRIADORAS DE ELEMENTOS
+-- ==========================================
+local function CreateSlider(text, parent, minVal, maxVal, defaultVal, callback)
+	local Container = Instance.new("Frame")
+	Container.Size = UDim2.new(0, 270, 0, 50)
+	Container.BackgroundTransparency = 1
+	Container.Parent = parent
+
+	local Label = Instance.new("TextLabel")
+	Label.Size = UDim2.new(1, 0, 0, 20)
+	Label.BackgroundTransparency = 1
+	Label.TextColor3 = COLOR_TEXT
+	Label.Font = Enum.Font.GothamSemibold
+	Label.TextSize = 14
+	Label.Text = text .. ": " .. defaultVal
+	Label.TextXAlignment = Enum.TextXAlignment.Left
+	Label.Parent = Container
+
+	local SliderBg = Instance.new("Frame")
+	SliderBg.Size = UDim2.new(1, -10, 0, 6)
+	SliderBg.Position = UDim2.new(0, 5, 0, 30)
+	SliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(1, 0)
+	SliderBg.Parent = Container
+
+	local SliderFill = Instance.new("Frame")
+	local startScale = (defaultVal - minVal) / (maxVal - minVal)
+	SliderFill.Size = UDim2.new(startScale, 0, 1, 0)
+	SliderFill.BackgroundColor3 = COLOR_PURPLE
+	Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(1, 0)
+	SliderFill.Parent = SliderBg
+
+	local Knob = Instance.new("TextButton")
+	Knob.Size = UDim2.new(0, 16, 0, 16)
+	Knob.Position = UDim2.new(startScale, -8, 0.5, -8)
+	Knob.BackgroundColor3 = COLOR_TEXT
+	Knob.Text = ""
+	Instance.new("UICorner", Knob).CornerRadius = UDim.new(1, 0)
+	Knob.Parent = SliderBg
+
+	local dragging = false
+
+	local function UpdateFromMouse(inputX)
+		local sliderPos = SliderBg.AbsolutePosition.X
+		local sliderSize = SliderBg.AbsoluteSize.X
+		if sliderSize > 0 then
+			local percentage = math.clamp((inputX - sliderPos) / sliderSize, 0, 1)
+			Knob.Position = UDim2.new(percentage, -8, 0.5, -8)
+			SliderFill.Size = UDim2.new(percentage, 0, 1, 0)
+			local value = math.floor(minVal + ((maxVal - minVal) * percentage))
+			Label.Text = text .. ": " .. value
+			callback(value)
+		end
+	end
+
+	Knob.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			UpdateFromMouse(input.Position.X)
+		end
+	end)
+
+	SliderBg.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			UpdateFromMouse(input.Position.X)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			UpdateFromMouse(input.Position.X)
+		end
+	end)
 end
 
-function MovementEngine.SetInfiniteJump(enabled)
-    HubState.Movement.InfiniteJumpActive = enabled
-    if enabled then
-        RegisterLoop("Core_InfJump", UserInputService.JumpRequest:Connect(function()
-            local char = LocalPlayer.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
-        end))
-    else
-        DropLoop("Core_InfJump")
-    end
+local function CreateButton(text, parent, bgCol)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 270, 0, 35)
+	btn.BackgroundColor3 = bgCol or Color3.fromRGB(20, 20, 20)
+	btn.TextColor3 = COLOR_TEXT
+	btn.Font = Enum.Font.GothamSemibold
+	btn.TextSize = 14
+	btn.Text = text
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = COLOR_PURPLE
+	stroke.Thickness = 1
+	stroke.Parent = btn
+	btn.Parent = parent
+	return btn
 end
 
-local FlyVectors = { W = 0, S = 0, A = 0, D = 0, Up = 0, Down = 0 }
+-- ==========================================
+-- VARIÁVEIS GLOBAIS & ESTADO
+-- ==========================================
+local currentSpeed, currentFlySpeed = 16, 50
+local customSpeedEnabled = false
+local flying, flinging, noclip, espMM2, espJB, showHitboxes, autoTpGun, espCoins = false, false, false, false, false, false, false, false
+local bg, bv, noclipConnection, flyConnection, speedConnection, selectedTarget
 
-function MovementEngine.SetFlight(enabled)
-    HubState.Movement.FlightActive = enabled
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
+local EspFolderMM2 = Instance.new("Folder", game:GetService("CoreGui")); EspFolderMM2.Name = "Waifu_MM2_ESP"
+local EspFolderCoins = Instance.new("Folder", game:GetService("CoreGui")); EspFolderCoins.Name = "Waifu_Coins_ESP"
+local EspFolderJB = Instance.new("Folder", game:GetService("CoreGui")); EspFolderJB.Name = "Waifu_JB_ESP"
+local HitboxFolder = Instance.new("Folder", game:GetService("CoreGui")); HitboxFolder.Name = "Waifu_Hitboxes"
 
-    if not enabled or not root then
-        DropLoop("Fly_Render")
-        DropLoop("Fly_KeyBegan")
-        DropLoop("Fly_KeyEnded")
-        if root then
-            local bv = root:FindFirstChild("WaifuFlyBV")
-            local bg = root:FindFirstChild("WaifuFlyBG")
-            if bv then bv:Destroy() end
-            if bg then bg:Destroy() end
-        end
-        return
-    end
-
-    local bv = Instance.new("BodyVelocity")
-    bv.Name = "WaifuFlyBV"
-    bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-    bv.Velocity = Vector3.zero
-    bv.Parent = root
-
-    local bg = Instance.new("BodyGyro")
-    bg.Name = "WaifuFlyBG"
-    bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-    bg.CFrame = root.CFrame
-    bg.Parent = root
-
-    RegisterLoop("Fly_KeyBegan", UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
-        if input.KeyCode == Enum.KeyCode.W then FlyVectors.W = 1
-        elseif input.KeyCode == Enum.KeyCode.S then FlyVectors.S = 1
-        elseif input.KeyCode == Enum.KeyCode.A then FlyVectors.A = 1
-        elseif input.KeyCode == Enum.KeyCode.D then FlyVectors.D = 1
-        elseif input.KeyCode == Enum.KeyCode.Space then FlyVectors.Up = 1
-        elseif input.KeyCode == Enum.KeyCode.LeftShift then FlyVectors.Down = 1 end
-    end))
-
-    RegisterLoop("Fly_KeyEnded", UserInputService.InputEnded:Connect(function(input)
-        if input.KeyCode == Enum.KeyCode.W then FlyVectors.W = 0
-        elseif input.KeyCode == Enum.KeyCode.S then FlyVectors.S = 0
-        elseif input.KeyCode == Enum.KeyCode.A then FlyVectors.A = 0
-        elseif input.KeyCode == Enum.KeyCode.D then FlyVectors.D = 0
-        elseif input.KeyCode == Enum.KeyCode.Space then FlyVectors.Up = 0
-        elseif input.KeyCode == Enum.KeyCode.LeftShift then FlyVectors.Down = 0 end
-    end))
-
-    RegisterLoop("Fly_Render", RunService.RenderStepped:Connect(function()
-        if not HubState.Movement.FlightActive or not root or not root.Parent then return end
-        local camCF = Camera.CFrame
-        local dir = (camCF.LookVector * (FlyVectors.W - FlyVectors.S))
-            + (camCF.RightVector * (FlyVectors.D - FlyVectors.A))
-            + (Vector3.new(0, 1, 0) * (FlyVectors.Up - FlyVectors.Down))
-
-        if dir.Magnitude > 0 then
-            dir = dir.Unit * HubState.Movement.FlightSpeed
-        end
-        bv.Velocity = dir
-        bg.CFrame = camCF
-    end))
+-- Manter velocidade sempre aplicada mesmo após respawn ou animações
+local function ApplySpeed()
+	if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+		local hum = Player.Character:FindFirstChildOfClass("Humanoid")
+		hum.WalkSpeed = customSpeedEnabled and currentSpeed or 16
+	end
 end
 
-function MovementEngine.UpdateWalkSpeed()
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.WalkSpeed = HubState.Movement.SpeedActive and HubState.Movement.Speed or HubState.Movement.DefaultSpeed
-    end
-end
-
--- ====================================================================
--- MÓDULO DE FLING (DESVIO DE FÍSICA E COLISÃO)
--- ====================================================================
-local FlingEngine = {}
-
-function FlingEngine.ToggleFling(enabled, targetPlr)
-    HubState.Fling.Active = enabled
-    HubState.Fling.TargetPlayer = targetPlr
-
-    if not enabled then
-        DropLoop("Fling_Heartbeat")
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root then
-            local bav = root:FindFirstChild("FlingRotVelocity")
-            if bav then bav:Destroy() end
-        end
-        return
-    end
-
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    local bav = Instance.new("BodyAngularVelocity")
-    bav.Name = "FlingRotVelocity"
-    bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-    bav.AngularVelocity = Vector3.new(999999, 999999, 999999)
-    bav.Parent = root
-
-    RegisterLoop("Fling_Heartbeat", RunService.Heartbeat:Connect(function()
-        if not HubState.Fling.Active then return end
-        local myChar = LocalPlayer.Character
-        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return end
-
-        -- Forçar rotação extrema e noclip local durante o contato
-        for _, part in ipairs(myChar:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-
-        if HubState.Fling.TargetPlayer and HubState.Fling.TargetPlayer.Character then
-            local targetRoot = HubState.Fling.TargetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if targetRoot then
-                myRoot.CFrame = targetRoot.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
-                myRoot.AssemblyLinearVelocity = Vector3.new(999999, 999999, 999999)
-            end
-        else
-            myRoot.AssemblyLinearVelocity = Vector3.new(999999, 999999, 999999)
-        end
-    end))
-end
-
--- ====================================================================
--- MÓDULO DE TELEPORTE ENTRE JOGADORES
--- ====================================================================
-local TeleportEngine = {}
-
-function TeleportEngine.ToPlayer(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then return end
-    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    local myChar = LocalPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-
-    if targetRoot and myRoot then
-        myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3)
-    end
-end
-
--- ====================================================================
--- MÓDULO DE ANIMAÇÕES & DANÇAS (INFINITE YIELD ENGINE)
--- ====================================================================
-local AnimationEngine = {}
-
-local EmoteDatabase = {
-    ["Floss"] = "rbxassetid://10714340543",
-    ["Dab"] = "rbxassetid://10714107111",
-    ["Shuffle"] = "rbxassetid://10714349479",
-    ["Electro Dance"] = "rbxassetid://10714352726",
-    ["Zombie"] = "rbxassetid://10714347258",
-    ["Hero Pose"] = "rbxassetid://10714344445",
-    ["Wave"] = "rbxassetid://10714346580"
-}
-
-function AnimationEngine.PlayEmote(animId)
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not hum then return end
-
-    local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
-    
-    if HubState.Animation.CurrentTrack then
-        HubState.Animation.CurrentTrack:Stop()
-        HubState.Animation.CurrentTrack = nil
-    end
-
-    local anim = Instance.new("Animation")
-    anim.AnimationId = animId
-
-    local track = animator:LoadAnimation(anim)
-    track.Looped = true
-    track:Play()
-    HubState.Animation.CurrentTrack = track
-end
-
-function AnimationEngine.StopEmotes()
-    if HubState.Animation.CurrentTrack then
-        HubState.Animation.CurrentTrack:Stop()
-        HubState.Animation.CurrentTrack = nil
-    end
-end
-
--- ====================================================================
--- MÓDULO X-RAY (TRANSPARÊNCIA SELETIVA DE ESTRUTURAS)
--- ====================================================================
-local XRayEngine = {}
-local OriginalTransparencyMap = {}
-
-function XRayEngine.ToggleXRay(enabled)
-    HubState.Visuals.XRayActive = enabled
-    if enabled then
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and not obj:IsDescendantOf(LocalPlayer.Character) then
-                local isPlayerPart = false
-                for _, p in ipairs(Players:GetPlayers()) do
-                    if p.Character and obj:IsDescendantOf(p.Character) then
-                        isPlayerPart = true
-                        break
-                    end
-                end
-                if not isPlayerPart and obj.Transparency < 0.5 then
-                    OriginalTransparencyMap[obj] = obj.Transparency
-                    obj.Transparency = 0.55
-                end
-            end
-        end
-    else
-        for obj, origTrans in pairs(OriginalTransparencyMap) do
-            if obj and obj.Parent then
-                obj.Transparency = origTrans
-            end
-        end
-        table.clear(OriginalTransparencyMap)
-    end
-end
-
--- ====================================================================
--- MÓDULO MURDER MYSTERY 2 (ROLE ESP, COINS & AUTO-GUN)
--- ====================================================================
-local MM2Engine = {}
-local MM2RoleHighlights = {}
-local CoinHighlights = {}
-
-local function CheckPlayerRole(player)
-    if not player or not player.Character then return "Innocent" end
-    local backpack = player:FindFirstChild("Backpack")
-    local character = player.Character
-
-    local function hasTool(name)
-        if backpack and backpack:FindFirstChild(name) then return true end
-        if character and character:FindFirstChild(name) then return true end
-        return false
-    end
-
-    if hasTool("Knife") then
-        return "Murderer"
-    elseif hasTool("Gun") or hasTool("Revolver") then
-        return "Sheriff"
-    end
-    return "Innocent"
-end
-
-function MM2Engine.UpdateRoleESP(enabled)
-    HubState.MM2.RoleESP = enabled
-    if not enabled then
-        DropLoop("MM2_RoleESPLoop")
-        for _, hl in pairs(MM2RoleHighlights) do
-            if hl and hl.Parent then hl:Destroy() end
-        end
-        table.clear(MM2RoleHighlights)
-        return
-    end
-
-    RegisterLoop("MM2_RoleESPLoop", RunService.Heartbeat:Connect(function()
-        if not HubState.MM2.RoleESP then return end
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                local role = CheckPlayerRole(p)
-                local hl = MM2RoleHighlights[p]
-                if not hl or not hl.Parent then
-                    hl = Instance.new("Highlight")
-                    hl.Name = "MM2RoleHighlight"
-                    hl.FillTransparency = 0.4
-                    hl.OutlineTransparency = 0.1
-                    hl.Adornee = p.Character
-                    hl.Parent = p.Character
-                    MM2RoleHighlights[p] = hl
-                end
-
-                if role == "Murderer" then
-                    hl.FillColor = HubState.Theme.Murderer
-                    hl.OutlineColor = Color3.fromRGB(255, 100, 100)
-                elseif role == "Sheriff" then
-                    hl.FillColor = HubState.Theme.Sheriff
-                    hl.OutlineColor = Color3.fromRGB(100, 200, 255)
-                else
-                    hl.FillColor = HubState.Theme.Innocent
-                    hl.OutlineColor = Color3.fromRGB(150, 255, 150)
-                end
-            end
-        end
-    end))
-end
-
-function MM2Engine.UpdateCoinESP(enabled)
-    HubState.MM2.CoinESP = enabled
-    if not enabled then
-        DropLoop("MM2_CoinLoop")
-        for _, hl in pairs(CoinHighlights) do
-            if hl and hl.Parent then hl:Destroy() end
-        end
-        table.clear(CoinHighlights)
-        return
-    end
-
-    RegisterLoop("MM2_CoinLoop", RunService.Heartbeat:Connect(function()
-        if not HubState.MM2.CoinESP then return end
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and (obj.Name == "Coin_Server" or obj.Name == "Coin" or obj.Name == "CoinContainer") then
-                if not CoinHighlights[obj] then
-                    local hl = Instance.new("Highlight")
-                    hl.Name = "CoinHighlight"
-                    hl.FillColor = Color3.fromRGB(255, 215, 0)
-                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    hl.FillTransparency = 0.3
-                    hl.Adornee = obj
-                    hl.Parent = obj
-                    CoinHighlights[obj] = hl
-                end
-            end
-        end
-    end))
-end
-
-function MM2Engine.UpdateAutoGrabGun(enabled)
-    HubState.MM2.AutoGrabGun = enabled
-    if not enabled then
-        DropLoop("MM2_AutoGunLoop")
-        return
-    end
-
-    RegisterLoop("MM2_AutoGunLoop", RunService.Heartbeat:Connect(function()
-        if not HubState.MM2.AutoGrabGun then return end
-        local gunDrop = Workspace:FindFirstChild("GunDrop")
-        if gunDrop and gunDrop:IsA("BasePart") then
-            local myChar = LocalPlayer.Character
-            local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-            if myRoot then
-                myRoot.CFrame = gunDrop.CFrame * CFrame.new(0, 1, 0)
-            end
-        end
-    end))
-end
-
--- ====================================================================
--- MÓDULO DE COMBATE & AIMBOT
--- ====================================================================
-local CombatEngine = {}
-
-local function RaycastVisibility(part, targetChar)
-    local origin = Camera.CFrame.Position
-    local dir = (part.Position - origin)
-    local params = RaycastParams.new()
-    params.FilterType = RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
-    params.IgnoreWater = true
-
-    local result = Workspace:Raycast(origin, dir, params)
-    if result then
-        return result.Instance:IsDescendantOf(targetChar)
-    end
-    return true
-end
-
-function CombatEngine.GetBestTarget()
-    local bestTarget = nil
-    local minDistance = HubState.Combat.FOV
-    local mouseLoc = Vector2.new(Mouse.X, Mouse.Y)
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            if HubState.Combat.TeamCheck and p.Team == LocalPlayer.Team then
-                continue
-            end
-            local hum = p.Character:FindFirstChildOfClass("Humanoid")
-            local part = p.Character:FindFirstChild(HubState.Combat.TargetPart)
-            if hum and hum.Health > 0 and part then
-                local sPoint, onScreen = Camera:WorldToViewportPoint(part.Position)
-                if onScreen then
-                    local sPos = Vector2.new(sPoint.X, sPoint.Y)
-                    local dist = (sPos - mouseLoc).Magnitude
-                    if dist < minDistance then
-                        if not HubState.Combat.VisibilityCheck or RaycastVisibility(part, p.Character) then
-                            minDistance = dist
-                            bestTarget = part
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return bestTarget
-end
-
-RegisterLoop("Aimbot_Loop", RunService.RenderStepped:Connect(function()
-    if not HubState.Combat.AimbotActive then return end
-    if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then return end
-
-    local target = CombatEngine.GetBestTarget()
-    if target then
-        local camCF = Camera.CFrame
-        local targetCF = CFrame.new(camCF.Position, target.Position)
-        Camera.CFrame = camCF:Lerp(targetCF, math.clamp(HubState.Combat.Smoothness, 0.05, 1))
-    end
-end))
-
--- ====================================================================
--- INTERFACE GRÁFICA V8 (UI/UX COMPLETA)
--- ====================================================================
-local GuiRoot = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
-local MainScreen = Instance.new("ScreenGui")
-MainScreen.Name = "WaifuHub_V8_Premium"
-MainScreen.ResetOnSpawn = false
-MainScreen.Parent = GuiRoot
-
--- FOV Circle
-local FOVCircle = Instance.new("Frame")
-FOVCircle.Name = "AimbotFOVCircle"
-FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
-FOVCircle.Size = UDim2.new(0, HubState.Combat.FOV * 2, 0, HubState.Combat.FOV * 2)
-FOVCircle.BackgroundTransparency = 1
-FOVCircle.Visible = HubState.Combat.FOVCircleVisible and HubState.Combat.AimbotActive
-FOVCircle.Parent = MainScreen
-
-local FOVCircleCorner = Instance.new("UICorner")
-FOVCircleCorner.CornerRadius = UDim.new(1, 0)
-FOVCircleCorner.Parent = FOVCircle
-
-local FOVCircleStroke = Instance.new("UIStroke")
-FOVCircleStroke.Color = HubState.Theme.Accent
-FOVCircleStroke.Thickness = 1.5
-FOVCircleStroke.Parent = FOVCircle
-
-RegisterLoop("UI_FOVCircleUpdate", RunService.RenderStepped:Connect(function()
-    if FOVCircle.Visible then
-        FOVCircle.Position = UDim2.new(0, Mouse.X, 0, Mouse.Y)
-    end
-end))
-
--- Janela Principal
-local MainWindow = Instance.new("Frame")
-MainWindow.Name = "MainWindow"
-MainWindow.Size = UDim2.new(0, 720, 0, 450)
-MainWindow.Position = UDim2.new(0.5, -360, 0.5, -225)
-MainWindow.BackgroundColor3 = HubState.Theme.Background
-MainWindow.BorderSizePixel = 0
-MainWindow.ClipsDescendants = true
-MainWindow.Parent = MainScreen
-
-local WindowCorner = Instance.new("UICorner")
-WindowCorner.CornerRadius = UDim.new(0, 10)
-WindowCorner.Parent = MainWindow
-
-local WindowStroke = Instance.new("UIStroke")
-WindowStroke.Color = HubState.Theme.Border
-WindowStroke.Thickness = 1.8
-WindowStroke.Parent = MainWindow
-
--- Animação Suave de Entrada
-MainWindow.Size = UDim2.new(0, 0, 0, 0)
-MainWindow.Position = UDim2.new(0.5, 0, 0.5, 0)
-TweenService:Create(MainWindow, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-    Size = UDim2.new(0, 720, 0, 450),
-    Position = UDim2.new(0.5, -360, 0.5, -225)
-}):Play()
-
--- Draggable Suave
-local isDragging, dragInput, dragStart, startPos
-local function UpdateDrag(input)
-    local delta = input.Position - dragStart
-    TweenService:Create(MainWindow, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    }):Play()
-end
-
-MainWindow.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        isDragging = true
-        dragStart = input.Position
-        startPos = MainWindow.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                isDragging = false
-            end
-        end)
-    end
+speedConnection = RunService.Heartbeat:Connect(function()
+	if customSpeedEnabled then
+		ApplySpeed()
+	end
 end)
 
-MainWindow.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
+Player.CharacterAdded:Connect(function()
+	task.wait(0.5)
+	ApplySpeed()
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and isDragging then
-        UpdateDrag(input)
-    end
+-- ==========================================
+-- ABA 1: UNIVERSAL
+-- ==========================================
+
+-- Slider e Botão de Ativar Velocidade
+CreateSlider("Velocidade", Tabs.Universal, 16, 250, 16, function(val)
+	currentSpeed = val
+	if customSpeedEnabled then
+		ApplySpeed()
+	end
 end)
 
--- Barra Lateral (Sidebar)
-local Sidebar = Instance.new("Frame")
-Sidebar.Name = "Sidebar"
-Sidebar.Size = UDim2.new(0, 200, 1, 0)
-Sidebar.BackgroundColor3 = HubState.Theme.Sidebar
-Sidebar.BorderSizePixel = 0
-Sidebar.Parent = MainWindow
-
-local SidebarCorner = Instance.new("UICorner")
-SidebarCorner.CornerRadius = UDim.new(0, 10)
-SidebarCorner.Parent = Sidebar
-
-local WaifuImg = Instance.new("ImageLabel")
-WaifuImg.Name = "WaifuAvatar"
-WaifuImg.Size = UDim2.new(0, 56, 0, 56)
-WaifuImg.Position = UDim2.new(0, 14, 0, 14)
-WaifuImg.BackgroundColor3 = HubState.Theme.Card
-WaifuImg.Image = HubState.Assets.WaifuImageId
-WaifuImg.ScaleType = Enum.ScaleType.Fit
-WaifuImg.Parent = Sidebar
-
-local ImgCorner = Instance.new("UICorner")
-ImgCorner.CornerRadius = UDim.new(1, 0)
-ImgCorner.Parent = WaifuImg
-
-local ImgStroke = Instance.new("UIStroke")
-ImgStroke.Color = HubState.Theme.AccentGlow
-ImgStroke.Thickness = 1.5
-ImgStroke.Parent = WaifuImg
-
-local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Position = UDim2.new(0, 80, 0, 18)
-HeaderTitle.Size = UDim2.new(0, 110, 0, 20)
-HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Font = Enum.Font.GothamBold
-HeaderTitle.Text = "WAIFU HUB"
-HeaderTitle.TextColor3 = HubState.Theme.Text
-HeaderTitle.TextSize = 14
-HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
-HeaderTitle.Parent = Sidebar
-
-local HeaderSub = Instance.new("TextLabel")
-HeaderSub.Position = UDim2.new(0, 80, 0, 38)
-HeaderSub.Size = UDim2.new(0, 110, 0, 16)
-HeaderSub.BackgroundTransparency = 1
-HeaderSub.Font = Enum.Font.Gotham
-HeaderSub.Text = "PREMIUM V8"
-HeaderSub.TextColor3 = HubState.Theme.AccentGlow
-HeaderSub.TextSize = 11
-HeaderSub.TextXAlignment = Enum.TextXAlignment.Left
-HeaderSub.Parent = Sidebar
-
--- Lista de Abas
-local TabListContainer = Instance.new("Frame")
-TabListContainer.Name = "TabList"
-TabListContainer.Size = UDim2.new(1, -20, 1, -95)
-TabListContainer.Position = UDim2.new(0, 10, 0, 85)
-TabListContainer.BackgroundTransparency = 1
-TabListContainer.Parent = Sidebar
-
-local TabLayout = Instance.new("UIListLayout")
-TabLayout.Padding = UDim.new(0, 5)
-TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabLayout.Parent = TabListContainer
-
--- Painel de Conteúdo
-local ContentPanel = Instance.new("Frame")
-ContentPanel.Name = "ContentPanel"
-ContentPanel.Size = UDim2.new(1, -220, 1, -20)
-ContentPanel.Position = UDim2.new(0, 210, 0, 10)
-ContentPanel.BackgroundTransparency = 1
-ContentPanel.Parent = MainWindow
-
-local Pages = {}
-local CurrentPageRef = nil
-
-local function CreatePage(id)
-    local page = Instance.new("ScrollingFrame")
-    page.Name = id .. "Page"
-    page.Size = UDim2.new(1, 0, 1, 0)
-    page.BackgroundTransparency = 1
-    page.ScrollBarThickness = 3
-    page.ScrollBarImageColor3 = HubState.Theme.Accent
-    page.Visible = false
-    page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    page.Parent = ContentPanel
-
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 8)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Parent = page
-
-    local pad = Instance.new("UIPadding")
-    pad.PaddingRight = UDim.new(0, 6)
-    pad.Parent = page
-
-    Pages[id] = page
-    return page
-end
-
-local function CreateTab(name, icon, order)
-    local btn = Instance.new("TextButton")
-    btn.Name = name .. "Btn"
-    btn.Size = UDim2.new(1, 0, 0, 34)
-    btn.BackgroundColor3 = HubState.Theme.Background
-    btn.AutoButtonColor = false
-    btn.Font = Enum.Font.GothamSemibold
-    btn.Text = "  " .. icon .. "  " .. name
-    btn.TextColor3 = HubState.Theme.TextDim
-    btn.TextSize = 12
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.LayoutOrder = order
-    btn.Parent = TabListContainer
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = btn
-
-    btn.MouseEnter:Connect(function()
-        if CurrentPageRef ~= Pages[name] then
-            TweenService:Create(btn, TweenInfo.new(0.2), {
-                BackgroundColor3 = Color3.fromRGB(32, 28, 44),
-                TextColor3 = HubState.Theme.Text
-            }):Play()
-        end
-    end)
-
-    btn.MouseLeave:Connect(function()
-        if CurrentPageRef ~= Pages[name] then
-            TweenService:Create(btn, TweenInfo.new(0.2), {
-                BackgroundColor3 = HubState.Theme.Background,
-                TextColor3 = HubState.Theme.TextDim
-            }):Play()
-        end
-    end)
-
-    btn.MouseButton1Click:Connect(function()
-        for tabId, p in pairs(Pages) do
-            local otherBtn = TabListContainer:FindFirstChild(tabId .. "Btn")
-            if p == Pages[name] then
-                p.Visible = true
-                CurrentPageRef = p
-                TweenService:Create(btn, TweenInfo.new(0.25), {
-                    BackgroundColor3 = HubState.Theme.Accent,
-                    TextColor3 = Color3.fromRGB(255, 255, 255)
-                }):Play()
-            else
-                p.Visible = false
-                if otherBtn then
-                    TweenService:Create(otherBtn, TweenInfo.new(0.25), {
-                        BackgroundColor3 = HubState.Theme.Background,
-                        TextColor3 = HubState.Theme.TextDim
-                    }):Play()
-                end
-            end
-        end
-    end)
-
-    return btn
-end
-
--- ====================================================================
--- COMPONENTES DE UI (TOGGLE, SLIDER, ACTION BUTTON, DROPDOWN)
--- ====================================================================
-local function AddSection(parent, text)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 0, 22)
-    lbl.BackgroundTransparency = 1
-    lbl.Font = Enum.Font.GothamBold
-    lbl.Text = string.upper(text)
-    lbl.TextColor3 = HubState.Theme.AccentGlow
-    lbl.TextSize = 11
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = parent
-end
-
-local function AddToggle(parent, label, defState, callback)
-    local state = defState
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 38)
-    frame.BackgroundColor3 = HubState.Theme.Card
-    frame.BorderSizePixel = 0
-    frame.Parent = parent
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = frame
-
-    local txt = Instance.new("TextLabel")
-    txt.Size = UDim2.new(1, -60, 1, 0)
-    txt.Position = UDim2.new(0, 12, 0, 0)
-    txt.BackgroundTransparency = 1
-    txt.Font = Enum.Font.Gotham
-    txt.Text = label
-    txt.TextColor3 = HubState.Theme.Text
-    txt.TextSize = 12
-    txt.TextXAlignment = Enum.TextXAlignment.Left
-    txt.Parent = frame
-
-    local switch = Instance.new("TextButton")
-    switch.Size = UDim2.new(0, 42, 0, 22)
-    switch.Position = UDim2.new(1, -52, 0.5, -11)
-    switch.BackgroundColor3 = state and HubState.Theme.Accent or Color3.fromRGB(45, 45, 60)
-    switch.Text = ""
-    switch.AutoButtonColor = false
-    switch.Parent = frame
-
-    local switchCorner = Instance.new("UICorner")
-    switchCorner.CornerRadius = UDim.new(1, 0)
-    switchCorner.Parent = switch
-
-    local circle = Instance.new("Frame")
-    circle.Size = UDim2.new(0, 16, 0, 16)
-    circle.Position = state and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
-    circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    circle.BorderSizePixel = 0
-    circle.Parent = switch
-
-    local circleCorner = Instance.new("UICorner")
-    circleCorner.CornerRadius = UDim.new(1, 0)
-    circleCorner.Parent = circle
-
-    switch.MouseButton1Click:Connect(function()
-        state = not state
-        TweenService:Create(switch, TweenInfo.new(0.2), {
-            BackgroundColor3 = state and HubState.Theme.Accent or Color3.fromRGB(45, 45, 60)
-        }):Play()
-        TweenService:Create(circle, TweenInfo.new(0.2), {
-            Position = state and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
-        }):Play()
-        callback(state)
-    end)
-end
-
--- Componente Slider com Linha e Bolinha Arrastável
-local function AddSlider(parent, label, minVal, maxVal, defaultVal, callback)
-    local val = defaultVal
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 56)
-    frame.BackgroundColor3 = HubState.Theme.Card
-    frame.BorderSizePixel = 0
-    frame.Parent = parent
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = frame
-
-    local txt = Instance.new("TextLabel")
-    txt.Size = UDim2.new(1, -60, 0, 24)
-    txt.Position = UDim2.new(0, 12, 0, 4)
-    txt.BackgroundTransparency = 1
-    txt.Font = Enum.Font.Gotham
-    txt.Text = label
-    txt.TextColor3 = HubState.Theme.Text
-    txt.TextSize = 12
-    txt.TextXAlignment = Enum.TextXAlignment.Left
-    txt.Parent = frame
-
-    local valDisplay = Instance.new("TextLabel")
-    valDisplay.Size = UDim2.new(0, 50, 0, 24)
-    valDisplay.Position = UDim2.new(1, -60, 0, 4)
-    valDisplay.BackgroundTransparency = 1
-    valDisplay.Font = Enum.Font.GothamBold
-    valDisplay.Text = tostring(math.floor(val))
-    valDisplay.TextColor3 = HubState.Theme.AccentGlow
-    valDisplay.TextSize = 12
-    valDisplay.TextXAlignment = Enum.TextXAlignment.Right
-    valDisplay.Parent = frame
-
-    local sliderTrack = Instance.new("Frame")
-    sliderTrack.Name = "Track"
-    sliderTrack.Size = UDim2.new(1, -24, 0, 6)
-    sliderTrack.Position = UDim2.new(0, 12, 0, 36)
-    sliderTrack.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-    sliderTrack.BorderSizePixel = 0
-    sliderTrack.Parent = frame
-
-    local trackCorner = Instance.new("UICorner")
-    trackCorner.CornerRadius = UDim.new(1, 0)
-    trackCorner.Parent = sliderTrack
-
-    local fillBar = Instance.new("Frame")
-    fillBar.Name = "Fill"
-    local initialPercent = (val - minVal) / (maxVal - minVal)
-    fillBar.Size = UDim2.new(initialPercent, 0, 1, 0)
-    fillBar.BackgroundColor3 = HubState.Theme.Accent
-    fillBar.BorderSizePixel = 0
-    fillBar.Parent = sliderTrack
-
-    local fillCorner = Instance.new("UICorner")
-    fillCorner.CornerRadius = UDim.new(1, 0)
-    fillCorner.Parent = fillBar
-
-    local knob = Instance.new("Frame")
-    knob.Name = "Knob"
-    knob.Size = UDim2.new(0, 16, 0, 16)
-    knob.AnchorPoint = Vector2.new(0.5, 0.5)
-    knob.Position = UDim2.new(initialPercent, 0, 0.5, 0)
-    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    knob.BorderSizePixel = 0
-    knob.Parent = sliderTrack
-
-    local knobCorner = Instance.new("UICorner")
-    knobCorner.CornerRadius = UDim.new(1, 0)
-    knobCorner.Parent = knob
-
-    local knobStroke = Instance.new("UIStroke")
-    knobStroke.Color = HubState.Theme.AccentGlow
-    knobStroke.Thickness = 1.5
-    knobStroke.Parent = knob
-
-    local isDraggingSlider = false
-    local function UpdateSlider(inputX)
-        local relX = math.clamp((inputX - sliderTrack.AbsolutePosition.X) / sliderTrack.AbsoluteSize.X, 0, 1)
-        val = minVal + (maxVal - minVal) * relX
-        fillBar.Size = UDim2.new(relX, 0, 1, 0)
-        knob.Position = UDim2.new(relX, 0, 0.5, 0)
-        valDisplay.Text = tostring(math.floor(val))
-        callback(val)
-    end
-
-    sliderTrack.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDraggingSlider = true
-            UpdateSlider(input.Position.X)
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDraggingSlider = false
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if isDraggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
-            UpdateSlider(input.Position.X)
-        end
-    end)
-end
-
-local function AddButton(parent, label, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 36)
-    btn.BackgroundColor3 = HubState.Theme.Card
-    btn.AutoButtonColor = false
-    btn.Font = Enum.Font.GothamSemibold
-    btn.Text = "  " .. label
-    btn.TextColor3 = HubState.Theme.Text
-    btn.TextSize = 12
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.Parent = parent
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = btn
-
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2), { BackgroundColor3 = HubState.Theme.Accent }):Play()
-    end)
-
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2), { BackgroundColor3 = HubState.Theme.Card }):Play()
-    end)
-
-    btn.MouseButton1Click:Connect(callback)
-end
-
--- ====================================================================
--- MONTAGEM DAS PÁGINAS DO HUB
--- ====================================================================
-
--- 1. UNIVERSAL PAGE
-local universalPage = CreatePage("Universal")
-AddSection(universalPage, "Física & Movimento")
-AddToggle(universalPage, "Noclip (Desativar Colisão)", false, function(s)
-    MovementEngine.SetNoclip(s)
-end)
-AddToggle(universalPage, "Infinite Jump (Pulo Contínuo)", false, function(s)
-    MovementEngine.SetInfiniteJump(s)
-end)
-AddToggle(universalPage, "Fly Mode (W/A/S/D + Shift/Space)", false, function(s)
-    MovementEngine.SetFlight(s)
-end)
-AddToggle(universalPage, "Ativar Velocidade Customizada", false, function(s)
-    HubState.Movement.SpeedActive = s
-    MovementEngine.UpdateWalkSpeed()
-end)
-AddSlider(universalPage, "Velocidade de Caminhada (SPS)", 16, 250, 32, function(v)
-    HubState.Movement.Speed = v
-    if HubState.Movement.SpeedActive then
-        MovementEngine.UpdateWalkSpeed()
-    end
-end)
-AddSection(universalPage, "Servidores")
-AddButton(universalPage, "Server Hop (Pular para Menor Servidor)", function()
-    task.spawn(function()
-        local placeId = game.PlaceId
-        local api = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
-        local success, res = pcall(function() return HttpService:JSONDecode(game:HttpGet(api)) end)
-        if success and res and res.data then
-            for _, srv in ipairs(res.data) do
-                if srv.playing < srv.maxPlayers and srv.id ~= game.JobId then
-                    TeleportService:TeleportToPlaceInstance(placeId, srv.id, LocalPlayer)
-                    return
-                end
-            end
-        end
-        TeleportService:Teleport(placeId, LocalPlayer)
-    end)
+local SpeedToggleBtn = CreateButton("Ativar Velocidade Customizada", Tabs.Universal)
+SpeedToggleBtn.MouseButton1Click:Connect(function()
+	customSpeedEnabled = not customSpeedEnabled
+	if customSpeedEnabled then
+		SpeedToggleBtn.TextColor3 = COLOR_PURPLE
+		ApplySpeed()
+	else
+		SpeedToggleBtn.TextColor3 = COLOR_TEXT
+		if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+			Player.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16
+		end
+	end
 end)
 
--- 2. TELEPORTE & FLING PAGE
-local tpPage = CreatePage("Jogadores")
-AddSection(tpPage, "Ações Rápidas de Jogador")
-local selectedPlayer = nil
-local playerStatusLabel = Instance.new("TextLabel")
-playerStatusLabel.Size = UDim2.new(1, 0, 0, 24)
-playerStatusLabel.BackgroundTransparency = 1
-playerStatusLabel.Font = Enum.Font.Gotham
-playerStatusLabel.Text = "Jogador Selecionado: Nenhum"
-playerStatusLabel.TextColor3 = HubState.Theme.AccentGlow
-playerStatusLabel.TextSize = 12
-playerStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-playerStatusLabel.Parent = tpPage
-
-AddButton(tpPage, "Teleportar para Jogador Selecionado", function()
-    if selectedPlayer then
-        TeleportEngine.ToPlayer(selectedPlayer)
-    end
+-- Slider e Botão de Voo Otimizado (RenderStepped & Câmera Real)
+CreateSlider("Velocidade Voo", Tabs.Universal, 10, 250, 50, function(val)
+	currentFlySpeed = val
 end)
 
-AddToggle(tpPage, "Fling Mode (Girar e Desovar Alvo)", false, function(s)
-    FlingEngine.ToggleFling(s, selectedPlayer)
+local FlyBtn = CreateButton("Ativar Voo", Tabs.Universal)
+FlyBtn.MouseButton1Click:Connect(function()
+	local char = Player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not hrp or not hum then return end
+
+	flying = not flying
+	if flying then
+		FlyBtn.TextColor3 = COLOR_PURPLE
+		
+		if bg then bg:Destroy() end
+		if bv then bv:Destroy() end
+		if flyConnection then flyConnection:Disconnect() end
+
+		bg = Instance.new("BodyGyro")
+		bg.P = 9e4
+		bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+		bg.CFrame = hrp.CFrame
+		bg.Parent = hrp
+
+		bv = Instance.new("BodyVelocity")
+		bv.Velocity = Vector3.zero
+		bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+		bv.Parent = hrp
+
+		hum.PlatformStand = true
+
+		flyConnection = RunService.RenderStepped:Connect(function()
+			if not flying or not hrp or not hrp.Parent then
+				if flyConnection then flyConnection:Disconnect() end
+				return
+			end
+
+			local cam = Workspace.CurrentCamera
+			bg.CFrame = cam.CFrame
+
+			local moveDir = Vector3.zero
+			if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+				moveDir = moveDir - Vector3.new(0, 1, 0)
+			end
+
+			if moveDir.Magnitude > 0 then
+				bv.Velocity = moveDir.Unit * currentFlySpeed
+			else
+				bv.Velocity = Vector3.zero
+			end
+		end)
+	else
+		FlyBtn.TextColor3 = COLOR_TEXT
+		if flyConnection then flyConnection:Disconnect() end
+		if bg then bg:Destroy() end
+		if bv then bv:Destroy() end
+		if hum then hum.PlatformStand = false end
+	end
 end)
 
-AddSection(tpPage, "Lista de Jogadores no Servidor")
-local playerListFrame = Instance.new("Frame")
-playerListFrame.Size = UDim2.new(1, 0, 0, 160)
-playerListFrame.BackgroundColor3 = HubState.Theme.Card
-playerListFrame.Parent = tpPage
-
-local plCorner = Instance.new("UICorner")
-plCorner.CornerRadius = UDim.new(0, 6)
-plCorner.Parent = playerListFrame
-
-local playerScroll = Instance.new("ScrollingFrame")
-playerScroll.Size = UDim2.new(1, -10, 1, -10)
-playerScroll.Position = UDim2.new(0, 5, 0, 5)
-playerScroll.BackgroundTransparency = 1
-playerScroll.ScrollBarThickness = 3
-playerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-playerScroll.Parent = playerListFrame
-
-local playerLayout = Instance.new("UIListLayout")
-playerLayout.Padding = UDim.new(0, 4)
-playerLayout.SortOrder = Enum.SortOrder.LayoutOrder
-playerLayout.Parent = playerScroll
-
-local function RefreshPlayerList()
-    for _, child in ipairs(playerScroll:GetChildren()) do
-        if child:IsA("TextButton") then child:Destroy() end
-    end
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            local pBtn = Instance.new("TextButton")
-            pBtn.Size = UDim2.new(1, -6, 0, 26)
-            pBtn.BackgroundColor3 = HubState.Theme.Background
-            pBtn.Font = Enum.Font.Gotham
-            pBtn.Text = "  " .. p.DisplayName .. " (@" .. p.Name .. ")"
-            pBtn.TextColor3 = HubState.Theme.Text
-            pBtn.TextSize = 11
-            pBtn.TextXAlignment = Enum.TextXAlignment.Left
-            pBtn.Parent = playerScroll
-
-            local c = Instance.new("UICorner")
-            c.CornerRadius = UDim.new(0, 4)
-            c.Parent = pBtn
-
-            pBtn.MouseButton1Click:Connect(function()
-                selectedPlayer = p
-                playerStatusLabel.Text = "Jogador Selecionado: " .. p.DisplayName
-            end)
-        end
-    end
-end
-RefreshPlayerList()
-Players.PlayerAdded:Connect(RefreshPlayerList)
-Players.PlayerRemoving:Connect(RefreshPlayerList)
-
-AddButton(tpPage, "Atualizar Lista de Jogadores", RefreshPlayerList)
-
--- 3. MURDER MYSTERY 2 PAGE
-local mm2Page = CreatePage("MM2")
-AddSection(mm2Page, "Detecção & Papéis (Role ESP)")
-AddToggle(mm2Page, "Enxergar Assassino & Xerife (Role ESP)", false, function(s)
-    MM2Engine.UpdateRoleESP(s)
-end)
-AddSection(mm2Page, "Moedas & Itens")
-AddToggle(mm2Page, "Localização de Moedas (Coin ESP)", false, function(s)
-    MM2Engine.UpdateCoinESP(s)
-end)
-AddToggle(mm2Page, "Auto-Coletar Arma ao Cair (Gun Drop)", false, function(s)
-    MM2Engine.UpdateAutoGrabGun(s)
+local NoclipBtn = CreateButton("Ativar Noclip (Atravessar)", Tabs.Universal)
+NoclipBtn.MouseButton1Click:Connect(function()
+	noclip = not noclip
+	if noclip then
+		NoclipBtn.TextColor3 = COLOR_PURPLE
+		noclipConnection = RunService.Stepped:Connect(function()
+			if Player.Character then
+				for _, part in pairs(Player.Character:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.CanCollide = false
+					end
+				end
+			end
+		end)
+	else
+		NoclipBtn.TextColor3 = COLOR_TEXT
+		if noclipConnection then noclipConnection:Disconnect() end
+		if Player.Character then
+			for _, part in pairs(Player.Character:GetDescendants()) do
+				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+					part.CanCollide = true
+				end
+			end
+		end
+	end
 end)
 
--- 4. VISUAIS & X-RAY PAGE
-local visualPage = CreatePage("Visuais")
-AddSection(visualPage, "Visão Estrutural")
-AddToggle(visualPage, "Ativar X-Ray (Paredes Transparentes)", false, function(s)
-    XRayEngine.ToggleXRay(s)
-end)
-AddSection(visualPage, "Mira Automática (Aimbot)")
-AddToggle(visualPage, "Aimbot Ativo (Botão Direito)", false, function(s)
-    HubState.Combat.AimbotActive = s
-    FOVCircle.Visible = s and HubState.Combat.FOVCircleVisible
-end)
-AddToggle(visualPage, "Verificação de Visibilidade (Raycast)", true, function(s)
-    HubState.Combat.VisibilityCheck = s
-end)
-AddSlider(visualPage, "Raio do FOV", 50, 350, 120, function(v)
-    HubState.Combat.FOV = v
-    FOVCircle.Size = UDim2.new(0, v * 2, 0, v * 2)
-end)
-
--- 5. ANIMAÇÕES & DANÇAS PAGE (INFINITE YIELD)
-local animPage = CreatePage("Danças")
-AddSection(animPage, "Emotes do Infinite Yield")
-for emoteName, animId in pairs(EmoteDatabase) do
-    AddButton(animPage, "Dança: " .. emoteName, function()
-        AnimationEngine.PlayEmote(animId)
-    end)
-end
-AddSection(animPage, "Controle")
-AddButton(animPage, "Parar Todas as Danças", function()
-    AnimationEngine.StopEmotes()
+local FlingBtn = CreateButton("Ativar Fling", Tabs.Universal)
+FlingBtn.MouseButton1Click:Connect(function()
+	local char = Player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	flinging = not flinging
+	if flinging then
+		FlingBtn.TextColor3 = COLOR_PURPLE
+		local spin = Instance.new("BodyAngularVelocity")
+		spin.Name = "FlingSpin"
+		spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+		spin.AngularVelocity = Vector3.new(0, 50000, 0)
+		spin.Parent = hrp
+	else
+		FlingBtn.TextColor3 = COLOR_TEXT
+		if hrp:FindFirstChild("FlingSpin") then hrp.FlingSpin:Destroy() end
+	end
 end)
 
--- Criar Botões das Abas
-CreateTab("Universal", "⚡", 1)
-CreateTab("Jogadores", "👤", 2)
-CreateTab("MM2", "🔪", 3)
-CreateTab("Visuais", "👁", 4)
-CreateTab("Danças", "💃", 5)
+local KickBtn = CreateButton("Super Chute (Arremessar)", Tabs.Universal)
+KickBtn.MouseButton1Click:Connect(function()
+	local char = Player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	local nearestTarget, shortestDist = nil, 15 
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+			local dist = (p.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+			if dist < shortestDist then
+				shortestDist = dist
+				nearestTarget = p.Character.HumanoidRootPart
+			end
+		end
+	end
+	if nearestTarget then
+		KickBtn.TextColor3 = COLOR_PURPLE
+		local kickSpin = Instance.new("BodyAngularVelocity")
+		kickSpin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+		kickSpin.AngularVelocity = Vector3.new(0, 999999, 0)
+		kickSpin.Parent = hrp
 
--- Ativar Página Padrão
-Pages["Universal"].Visible = true
-CurrentPageRef = Pages["Universal"]
-local defaultTabBtn = TabListContainer:FindFirstChild("UniversalBtn")
-if defaultTabBtn then
-    defaultTabBtn.BackgroundColor3 = HubState.Theme.Accent
-    defaultTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-end
+		local dash = Instance.new("BodyVelocity")
+		dash.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+		dash.Velocity = (nearestTarget.Position - hrp.Position).Unit * 100
+		dash.Parent = hrp
+
+		task.wait(0.25)
+		kickSpin:Destroy()
+		dash:Destroy()
+		hrp.AssemblyLinearVelocity = Vector3.zero
+		hrp.AssemblyAngularVelocity = Vector3.zero
+		task.wait(0.1)
+		KickBtn.TextColor3 = COLOR_TEXT
+	end
+end)
+
+local DanceBtn = CreateButton("Dançar (/e dance)", Tabs.Universal)
+DanceBtn.MouseButton1Click:Connect(function() Players:Chat("/e dance") end)
+
+local PlayerDropdownBtn = CreateButton("Selecionar Alvo: Nenhum", Tabs.Universal, COLOR_DARK)
+local PlayerListFrame = Instance.new("Frame")
+PlayerListFrame.Size = UDim2.new(0, 270, 0, 0)
+PlayerListFrame.BackgroundTransparency = 1
+PlayerListFrame.Visible = false
+PlayerListFrame.Parent = Tabs.Universal
+
+local PlistLayout = Instance.new("UIListLayout")
+PlistLayout.SortOrder = Enum.SortOrder.LayoutOrder
+PlistLayout.Padding = UDim.new(0, 4)
+PlistLayout.Parent = PlayerListFrame
+
+PlayerDropdownBtn.MouseButton1Click:Connect(function()
+	PlayerListFrame.Visible = not PlayerListFrame.Visible
+	if PlayerListFrame.Visible then
+		for _, child in pairs(PlayerListFrame:GetChildren()) do
+			if child:IsA("TextButton") then child:Destroy() end
+		end
+		local count = 0
+		for _, p in pairs(Players:GetPlayers()) do
+			if p ~= Player then
+				local pBtn = Instance.new("TextButton")
+				pBtn.Size = UDim2.new(1, 0, 0, 30)
+				pBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+				pBtn.TextColor3 = COLOR_TEXT
+				pBtn.Font = Enum.Font.Gotham
+				pBtn.TextSize = 13
+				pBtn.Text = p.DisplayName
+				Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 5)
+				pBtn.MouseButton1Click:Connect(function()
+					selectedTarget = p
+					PlayerDropdownBtn.Text = "Alvo: " .. p.DisplayName
+					PlayerListFrame.Visible = false
+				end)
+				pBtn.Parent = PlayerListFrame
+				count = count + 1
+			end
+		end
+		PlayerListFrame.Size = UDim2.new(0, 270, 0, count * 34)
+	end
+end)
+
+local TeleportBtn = CreateButton("Teleportar ao Alvo", Tabs.Universal)
+TeleportBtn.TextColor3 = COLOR_PURPLE
+TeleportBtn.MouseButton1Click:Connect(function()
+	if selectedTarget and selectedTarget.Character and selectedTarget.Character:FindFirstChild("HumanoidRootPart") then
+		local char = Player.Character
+		if char and char:FindFirstChild("HumanoidRootPart") then
+			char.HumanoidRootPart.CFrame = selectedTarget.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+		end
+	end
+end)
+
+-- ==========================================
+-- ABA 2: MURDER (MM2)
+-- ==========================================
+local EspMM2Btn = CreateButton("Ativar ESP (Ver Papéis)", Tabs.Murder)
+EspMM2Btn.MouseButton1Click:Connect(function()
+	espMM2 = not espMM2
+	if espMM2 then
+		EspMM2Btn.TextColor3 = COLOR_PURPLE
+		task.spawn(function()
+			while espMM2 do
+				EspFolderMM2:ClearAllChildren()
+				for _, p in pairs(Players:GetPlayers()) do
+					if p ~= Player and p.Character and p.Character:FindFirstChild("Head") then
+						local hasKnife, hasGun = false, false
+						local function check(item)
+							if item:IsA("Tool") then
+								local name = item.Name:lower()
+								if name == "knife" or name:find("scythe") or name:find("pitchfork") or name:find("blade") then hasKnife = true end
+								if name == "gun" or name == "revolver" or name:find("blaster") then hasGun = true end
+							end
+						end
+						if p.Character then for _, v in pairs(p.Character:GetChildren()) do check(v) end end
+						if p:FindFirstChild("Backpack") then for _, v in pairs(p.Backpack:GetChildren()) do check(v) end end
+						
+						local role, color = nil, nil
+						if hasKnife then
+							role = "MURDER"
+							color = Color3.fromRGB(255, 0, 0)
+						elseif hasGun then
+							role = "SHERIFE"
+							color = Color3.fromRGB(0, 100, 255)
+						end
+						
+						if role then
+							local hl = Instance.new("Highlight", EspFolderMM2)
+							hl.Adornee = p.Character
+							hl.FillColor = color
+							hl.OutlineColor = color
+							hl.FillTransparency = 0.5
+
+							local bgui = Instance.new("BillboardGui", EspFolderMM2)
+							bgui.Adornee = p.Character.Head
+							bgui.Size = UDim2.new(0, 100, 0, 50)
+							bgui.StudsOffset = Vector3.new(0, 2.5, 0)
+							bgui.AlwaysOnTop = true
+
+							local txt = Instance.new("TextLabel", bgui)
+							txt.Size = UDim2.new(1, 0, 1, 0)
+							txt.BackgroundTransparency = 1
+							txt.TextColor3 = color
+							txt.Font = Enum.Font.GothamBold
+							txt.TextSize = 16
+							txt.Text = role
+						end
+					end
+				end
+				task.wait(1)
+			end
+		end)
+	else
+		EspMM2Btn.TextColor3 = COLOR_TEXT
+		EspFolderMM2:ClearAllChildren()
+	end
+end)
+
+local CoinEspBtn = CreateButton("ESP Moedas (MM2 Coins)", Tabs.Murder)
+CoinEspBtn.MouseButton1Click:Connect(function()
+	espCoins = not espCoins
+	if espCoins then
+		CoinEspBtn.TextColor3 = COLOR_PURPLE
+		task.spawn(function()
+			while espCoins do
+				EspFolderCoins:ClearAllChildren()
+				for _, obj in pairs(Workspace:GetDescendants()) do
+					if obj:IsA("BasePart") and (obj.Name == "Coin_Server" or obj.Name == "Coin" or obj.Name == "CoinContainer") then
+						local hl = Instance.new("Highlight", EspFolderCoins)
+						hl.Adornee = obj
+						hl.FillColor = Color3.fromRGB(255, 215, 0)
+						hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+						hl.FillTransparency = 0.3
+					end
+				end
+				task.wait(2)
+			end
+		end)
+	else
+		CoinEspBtn.TextColor3 = COLOR_TEXT
+		EspFolderCoins:ClearAllChildren()
+	end
+end)
+
+local HitboxBtn = CreateButton("Ver Hitboxes (Expandidas)", Tabs.Murder)
+HitboxBtn.MouseButton1Click:Connect(function()
+	showHitboxes = not showHitboxes
+	if showHitboxes then
+		HitboxBtn.TextColor3 = COLOR_PURPLE
+		task.spawn(function()
+			while showHitboxes do
+				HitboxFolder:ClearAllChildren()
+				for _, p in pairs(Players:GetPlayers()) do
+					if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+						local box = Instance.new("BoxHandleAdornment")
+						box.Adornee = p.Character.HumanoidRootPart
+						box.Size = Vector3.new(3, 4, 3)
+						box.Color3 = Color3.fromRGB(255, 0, 0)
+						box.Transparency = 0.6
+						box.AlwaysOnTop = true
+						box.ZIndex = 1
+						box.Parent = HitboxFolder
+					end
+				end
+				task.wait(0.5)
+			end
+		end)
+	else
+		HitboxBtn.TextColor3 = COLOR_TEXT
+		HitboxFolder:ClearAllChildren()
+	end
+end)
+
+local AutoGunBtn = CreateButton("Auto TP para Arma (Sherife Morto)", Tabs.Murder)
+AutoGunBtn.MouseButton1Click:Connect(function()
+	autoTpGun = not autoTpGun
+	if autoTpGun then
+		AutoGunBtn.TextColor3 = COLOR_PURPLE
+		task.spawn(function()
+			while autoTpGun do
+				task.wait(0.1)
+				local gunDrop = Workspace:FindFirstChild("GunDrop")
+				if gunDrop and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+					Player.Character.HumanoidRootPart.CFrame = gunDrop.CFrame
+					task.wait(1)
+				end
+			end
+		end)
+	else
+		AutoGunBtn.TextColor3 = COLOR_TEXT
+	end
+end)
+
+-- ==========================================
+-- ABA 3: JAILBREAK
+-- ==========================================
+local EspJBBtn = CreateButton("Ativar ESP (Policiais/Ladrões)", Tabs.Jailbreak)
+EspJBBtn.MouseButton1Click:Connect(function()
+	espJB = not espJB
+	if espJB then
+		EspJBBtn.TextColor3 = COLOR_PURPLE
+		task.spawn(function()
+			while espJB do
+				EspFolderJB:ClearAllChildren()
+				for _, p in pairs(Players:GetPlayers()) do
+					if p ~= Player and p.Character and p.Character:FindFirstChild("Head") and p.Team then
+						local tName = p.Team.Name:lower()
+						local role, color = nil, nil
+						
+						if tName:find("police") or tName:find("guard") then
+							role = "POLICIAL"
+							color = Color3.fromRGB(0, 150, 255)
+						elseif tName:find("criminal") then
+							role = "CRIMINOSO"
+							color = Color3.fromRGB(255, 0, 0)
+						elseif tName:find("prisoner") then
+							role = "PRISIONEIRO"
+							color = Color3.fromRGB(255, 120, 0)
+						end
+						
+						if role then
+							local hl = Instance.new("Highlight", EspFolderJB)
+							hl.Adornee = p.Character
+							hl.FillColor = color
+							hl.OutlineColor = color
+							hl.FillTransparency = 0.5
+
+							local bgui = Instance.new("BillboardGui", EspFolderJB)
+							bgui.Adornee = p.Character.Head
+							bgui.Size = UDim2.new(0, 100, 0, 50)
+							bgui.StudsOffset = Vector3.new(0, 2.5, 0)
+							bgui.AlwaysOnTop = true
+
+							local txt = Instance.new("TextLabel", bgui)
+							txt.Size = UDim2.new(1, 0, 1, 0)
+							txt.BackgroundTransparency = 1
+							txt.TextColor3 = color
+							txt.Font = Enum.Font.GothamBold
+							txt.TextSize = 16
+							txt.Text = role
+						end
+					end
+				end
+				task.wait(1)
+			end
+		end)
+	else
+		EspJBBtn.TextColor3 = COLOR_TEXT
+		EspFolderJB:ClearAllChildren()
+	end
+end)
+
+-- ==========================================
+-- LÓGICA DE FECHAMENTO GLOBAL
+-- ==========================================
+CloseBtn.MouseButton1Click:Connect(function()
+	if noclipConnection then noclipConnection:Disconnect() end
+	if flyConnection then flyConnection:Disconnect() end
+	if speedConnection then speedConnection:Disconnect() end
+
+	if flying then
+		if bg then bg:Destroy() end
+		if bv then bv:Destroy() end
+		if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+			Player.Character.Humanoid.PlatformStand = false
+		end
+	end
+
+	if flinging and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+		if Player.Character.HumanoidRootPart:FindFirstChild("FlingSpin") then
+			Player.Character.HumanoidRootPart.FlingSpin:Destroy()
+		end
+	end
+
+	if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+		Player.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16
+	end
+
+	espMM2 = false
+	espCoins = false
+	showHitboxes = false
+	autoTpGun = false
+	espJB = false
+
+	EspFolderMM2:Destroy()
+	EspFolderCoins:Destroy()
+	HitboxFolder:Destroy()
+	EspFolderJB:Destroy()
+	ScreenGui:Destroy()
+end)
+
+print("Waifu Hub V8 Carregado com Sucesso!")
