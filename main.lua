@@ -1,29 +1,21 @@
 --[[
     ========================================================================
-    WAIFU HUB — DEFINITIVE V10 (THE ULTIMATE ENGINE)
+    GOHUB — DEFINITIVE V11 (FINAL ENGINE)
     Target: Roblox Studio / Luau Engine
     
     Front-End Guarantee:
-      - 100% IDENTICAL FRONT-END (Sidebar, Waifu Avatar ID 135247969077372,
+      - 100% IDENTICAL FRONT-END DESIGN (Sidebar, Avatar ID 135247969077372,
         Dark Theme 15,15,22, Purple Glow, Draggable Window, Sliders, Close Btn).
       - Zero visual regressions.
       
-    V10 Engine Upgrades (Infinite Yield Powerhouse):
-      1. Rig-Adaptive Emote Engine (R6 & R15 Dual Resolver + PlayEmote Fallback):
-         - Resolves rig type dynamically via Humanoid.RigType
-         - Dual-table for R6 (182435998, 182436842, etc.) & R15 (507771019, 3361426436, etc.)
-         - HumanoidDescription & Animate.PlayEmote API hooks
-      2. Waypoints System (Salvar, Listar, Teleportar com 1 Clique)
-      3. Advanced Character Tools:
-         - Anti-Sit (impede o player de sentar em bancos/armadilhas)
-         - SpinBot (rotação configurável via BodyAngularVelocity)
-         - Fast Respawn & Rejoin Instance
-      4. ESP Universal com Chams / Tracers / Billboard
-      5. Full Target Parser com Operadores do Infinite Yield ('me', 'others', 'all', 'nearest', 'random', '%team', substring)
-      6. Integrated Command Bar (Retrátil, Atalho ';')
-      7. Native Anti-AFK (VirtualUser) & ClickTP (Ctrl + Clique) / TP Tool
-      8. Flight V7/V8 Engine & Speed Slider Persistente
-      9. MM2 Full Suite (Role ESP, Coins, Auto-Gun, Hitboxes)
+    V11 Final Engine Upgrades:
+      1. Infinite Yield Complete Fling Engine (WalkFling, SpinFling, Target Fling, AntiFling)
+      2. R15 & Jamal Viral Emotes Suite + IY Dance Suite + Real-Time Speed Slider
+      3. Waypoints System (Save, List, Teleport)
+      4. Advanced Character Tools (Anti-Sit, SpinBot, Instant Respawn)
+      5. Universal ESP with Chams & MM2 Full Suite
+      6. Full Target Parser & Retractable Command Bar (Key ';')
+      7. Smooth Flight V7/V8 Engine & WalkSpeed Heartbeat Loop
     ========================================================================
 ]]
 
@@ -96,10 +88,13 @@ local HubState = {
     },
     Fling = {
         Active = false,
+        WalkFling = false,
+        AntiFling = false,
         LoopTarget = nil
     },
     Animation = {
-        CurrentTrack = nil
+        CurrentTrack = nil,
+        Speed = 1
     },
     Character = {
         AntiSit = false,
@@ -357,36 +352,150 @@ function WaypointEngine.TeleportTo(wp)
 end
 
 -- ====================================================================
--- SISTEMA DE FLING (NORMAL, LOOP & INVISFLING)
+-- SISTEMA DE FLING (MOTOR INFINITE YIELD: WALKFLING, SPINFLING & ANTIFLING)
 -- ====================================================================
 local FlingEngine = {}
 
-function FlingEngine.ToggleFling(enabled)
+-- 1. WALKFLING (O clássico mais estável do Infinite Yield)
+-- Permite andar normalmente sem girar a tela; ao encostar em qualquer player, lança-o violentamente
+function FlingEngine.ToggleWalkFling(enabled)
+    HubState.Fling.WalkFling = enabled
+    if not enabled then
+        DropLoop("WalkFling_Heartbeat")
+        MovementEngine.SetNoclip(false)
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+        return
+    end
+
+    MovementEngine.SetNoclip(true)
+    local movel = 0.1
+    RegisterLoop("WalkFling_Heartbeat", RunService.Heartbeat:Connect(function()
+        if not HubState.Fling.WalkFling then return end
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not (char and char.Parent and root and root.Parent) then return end
+
+        local vel = root.AssemblyLinearVelocity
+        root.AssemblyLinearVelocity = vel * 10000 + Vector3.new(0, 10000, 0)
+
+        RunService.RenderStepped:Wait()
+        if char and char.Parent and root and root.Parent then
+            root.AssemblyLinearVelocity = vel
+        end
+
+        RunService.Stepped:Wait()
+        if char and char.Parent and root and root.Parent then
+            root.AssemblyLinearVelocity = vel + Vector3.new(0, movel, 0)
+            movel = movel * -1
+        end
+    end))
+end
+
+-- 2. SPINFLING (Fling Clássico por Torque com propriedades físicas reforçadas do IY)
+function FlingEngine.ToggleSpinFling(enabled)
     HubState.Fling.Active = enabled
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
     if enabled then
-        local spin = Instance.new("BodyAngularVelocity")
+        for _, child in ipairs(char:GetDescendants()) do
+            if child:IsA("BasePart") then
+                child.CustomPhysicalProperties = PhysicalProperties.new(100, 0.3, 0.5)
+            end
+        end
+        MovementEngine.SetNoclip(true)
+        task.wait(0.1)
+
+        local spin = hrp:FindFirstChild("WaifuFlingSpin") or Instance.new("BodyAngularVelocity")
         spin.Name = "WaifuFlingSpin"
-        spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-        spin.AngularVelocity = Vector3.new(0, 60000, 0)
         spin.Parent = hrp
+        spin.MaxTorque = Vector3.new(0, math.huge, 0)
+        spin.P = math.huge
+        spin.AngularVelocity = Vector3.new(0, 99999, 0)
+
+        for _, v in ipairs(char:GetChildren()) do
+            if v:IsA("BasePart") then
+                v.Massless = true
+                v.AssemblyLinearVelocity = Vector3.zero
+            end
+        end
+
+        RegisterLoop("SpinFling_Pulse", RunService.Heartbeat:Connect(function()
+            if not HubState.Fling.Active or not spin or not spin.Parent then return end
+            spin.AngularVelocity = Vector3.new(0, 99999, 0)
+        end))
     else
-        if hrp:FindFirstChild("WaifuFlingSpin") then hrp.WaifuFlingSpin:Destroy() end
+        DropLoop("SpinFling_Pulse")
+        MovementEngine.SetNoclip(false)
+        if hrp:FindFirstChild("WaifuFlingSpin") then
+            hrp.WaifuFlingSpin:Destroy()
+        end
+        for _, v in ipairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5)
+                v.Massless = false
+                v.AssemblyLinearVelocity = Vector3.zero
+            elseif v:IsA("BodyAngularVelocity") and v.Name == "WaifuFlingSpin" then
+                v:Destroy()
+            end
+        end
     end
 end
 
+-- Compatibilidade direta
+function FlingEngine.ToggleFling(enabled)
+    FlingEngine.ToggleSpinFling(enabled)
+end
+
+-- 3. FLING NO ALVO (Teleporte e colisão precisa sem destruir o próprio personagem)
+function FlingEngine.FlingTarget(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then return end
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local tHrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not tHrp then return end
+
+    local origCF = hrp.CFrame
+    FlingEngine.ToggleSpinFling(true)
+
+    task.spawn(function()
+        local startTime = tick()
+        while tick() - startTime < 1.5 do
+            RunService.Heartbeat:Wait()
+            if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then break end
+            tHrp = targetPlayer.Character.HumanoidRootPart
+            hrp.CFrame = tHrp.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
+            hrp.AssemblyLinearVelocity = Vector3.new(9999, 9999, 9999)
+        end
+        FlingEngine.ToggleSpinFling(false)
+        task.wait(0.05)
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        hrp.CFrame = origCF
+    end)
+end
+
+-- Compatibilidade InvisFling
+function FlingEngine.InvisFling(targetPlayer)
+    FlingEngine.FlingTarget(targetPlayer)
+end
+
+-- 4. LOOP FLING NO ALVO
 function FlingEngine.LoopFling(targetPlayer)
     HubState.Fling.LoopTarget = targetPlayer
     if not targetPlayer then
         DropLoop("LoopFling_Heartbeat")
-        FlingEngine.ToggleFling(false)
+        FlingEngine.ToggleSpinFling(false)
         return
     end
 
-    FlingEngine.ToggleFling(true)
+    FlingEngine.ToggleSpinFling(true)
     RegisterLoop("LoopFling_Heartbeat", RunService.Heartbeat:Connect(function()
         local target = HubState.Fling.LoopTarget
         if not target or not target.Character then
@@ -398,33 +507,29 @@ function FlingEngine.LoopFling(targetPlayer)
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
         if tRoot and myRoot then
             myRoot.CFrame = tRoot.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
-            myRoot.AssemblyLinearVelocity = Vector3.new(999999, 999999, 999999)
+            myRoot.AssemblyLinearVelocity = Vector3.new(9999, 9999, 9999)
         end
     end))
 end
 
-function FlingEngine.InvisFling(targetPlayer)
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    local origCFrame = hrp.CFrame
-    FlingEngine.ToggleFling(true)
-
-    task.spawn(function()
-        local tRoot = targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if tRoot then
-            for _ = 1, 35 do
-                hrp.CFrame = tRoot.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
-                hrp.AssemblyLinearVelocity = Vector3.new(999999, 999999, 999999)
-                task.wait()
+-- 5. ANTI-FLING (Proteção total do Infinite Yield)
+function FlingEngine.ToggleAntiFling(enabled)
+    HubState.Fling.AntiFling = enabled
+    if enabled then
+        RegisterLoop("AntiFling_Loop", RunService.Stepped:Connect(function()
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    for _, part in ipairs(player.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
             end
-        end
-        FlingEngine.ToggleFling(false)
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        hrp.AssemblyAngularVelocity = Vector3.zero
-        hrp.CFrame = origCFrame
-    end)
+        end))
+    else
+        DropLoop("AntiFling_Loop")
+    end
 end
 
 -- ====================================================================
@@ -502,99 +607,178 @@ function LightingEngine.ToggleNoFog(enabled)
 end
 
 -- ====================================================================
--- NOVO MOTOR DE ANIMAÇÕES & DANÇAS (R6 & R15 DUAL RESOLVER)
+-- MOTOR DE ANIMAÇÕES & DANÇAS (R15 EXPANDIDO, PASSINHO DO JAMAL & IY)
 -- ====================================================================
 local AnimationEngine = {}
 
--- Banco Universal com IDs específicos para R6 e R15
+-- Banco Universal com IDs e fallbacks
 local DualEmoteDatabase = {
-    ["Floss"] = {
-        R15 = "rbxassetid://10714340543",
-        R6 = "rbxassetid://5917459365"
+    -- Passinho do Jamal (Tendência Viral Brasil)
+    ["Passinho do Jamal (Principal)"] = { R15 = "rbxassetid://131086670591743" },
+    ["Passinho do Jamal (Fogo Fogo)"] = { R15 = "rbxassetid://101508054279219" },
+    ["Passinho do Jamal (Kitsi UGC)"] = { R15 = "rbxassetid://90852521137542" },
+    ["Passinho do Jamal (Mandrake)"] = { R15 = "rbxassetid://95654893473488" },
+    ["Passinho do Jamal (Dance Moves)"] = { R15 = "rbxassetid://121260976461862" },
+
+    -- Danças Oficiais do Infinite Yield (R15)
+    ["IY Dança 1 (Breakdance)"] = { R15 = "rbxassetid://3333432454" },
+    ["IY Dança 2 (Pop & Lock)"] = { R15 = "rbxassetid://4555808220" },
+    ["IY Dança 3 (Hip Hop / Hype)"] = { R15 = "rbxassetid://4049037604" },
+    ["IY Dança 4 (Wave Step)"] = { R15 = "rbxassetid://4555782893" },
+    ["IY Dança 5 (Freestyle)"] = { R15 = "rbxassetid://10214311282" },
+
+    -- Danças Famosas & Virais (R15 & R6 Fallback)
+    ["Floss"] = { R15 = "rbxassetid://10714340543", R6 = "rbxassetid://5917459365" },
+    ["Dab"] = { R15 = "rbxassetid://10714107111", R6 = "rbxassetid://248263260" },
+    ["Dizzy (SpiderTree)"] = { R15 = "rbxassetid://3361426436", R6 = "rbxassetid://182435998" },
+    ["Swoosh"] = { R15 = "rbxassetid://3361487920", R6 = "rbxassetid://182436842" },
+    ["Spin Dance"] = { R15 = "rbxassetid://3361481910", R6 = "rbxassetid://182436935" },
+    ["Hyped"] = { R15 = "rbxassetid://3695333486", R6 = "rbxassetid://182435998" },
+    ["Twirl"] = { R15 = "rbxassetid://3361499912", R6 = "rbxassetid://182436842" },
+    ["Tilt Walk"] = { R15 = "rbxassetid://3361438942", R6 = "rbxassetid://182435998" },
+    ["Dança Clássica 1"] = { R15 = "rbxassetid://507771019", R6 = "rbxassetid://182435998" },
+    ["Dança Clássica 2"] = { R15 = "rbxassetid://507776043", R6 = "rbxassetid://182436842" },
+    ["Dança Clássica 3"] = { R15 = "rbxassetid://507777268", R6 = "rbxassetid://182436935" },
+    ["Cheer (Torcer)"] = { R15 = "rbxassetid://507770677", R6 = "rbxassetid://128777973" },
+    ["Wave (Acenar)"] = { R15 = "rbxassetid://10714346580", R6 = "rbxassetid://128777973" },
+    ["Point (Apontar)"] = { R15 = "rbxassetid://10714347258", R6 = "rbxassetid://128853357" },
+    ["Laugh (Rir)"] = { R15 = "rbxassetid://10714344445", R6 = "rbxassetid://129423131" },
+    ["Shrug (Ombros)"] = { R15 = "rbxassetid://10714348656", R6 = "rbxassetid://182435998" },
+    ["Stadium (Estádio)"] = { R15 = "rbxassetid://3361440866", R6 = "rbxassetid://182436842" },
+    ["Tilt (Curvar)"] = { R15 = "rbxassetid://3361464908", R6 = "rbxassetid://182435998" },
+    ["Spasm (Spasm Dance)"] = { R15 = "rbxassetid://3361474812", R6 = "rbxassetid://248263260" },
+    ["Zombie (Dança Zumbi)"] = { R15 = "rbxassetid://3361413867", R6 = "rbxassetid://182436935" }
+}
+
+-- Categorias para interface organizada
+local EmoteCategories = {
+    {
+        Category = "Passinho do Jamal (Viral Brasil)",
+        Emotes = {
+            { Name = "Passinho do Jamal (Principal)", ID = "131086670591743" },
+            { Name = "Passinho do Jamal (Fogo Fogo)", ID = "101508054279219" },
+            { Name = "Passinho do Jamal (Kitsi UGC)", ID = "90852521137542" },
+            { Name = "Passinho do Jamal (Mandrake)", ID = "95654893473488" },
+            { Name = "Passinho do Jamal (Dance Moves)", ID = "121260976461862" }
+        }
     },
-    ["Dab"] = {
-        R15 = "rbxassetid://10714107111",
-        R6 = "rbxassetid://248263260"
+    {
+        Category = "Danças do Infinite Yield (R15)",
+        Emotes = {
+            { Name = "IY Dança 1 (Breakdance)", ID = "3333432454" },
+            { Name = "IY Dança 2 (Pop & Lock)", ID = "4555808220" },
+            { Name = "IY Dança 3 (Hip Hop / Hype)", ID = "4049037604" },
+            { Name = "IY Dança 4 (Wave Step)", ID = "4555782893" },
+            { Name = "IY Dança 5 (Freestyle)", ID = "10214311282" }
+        }
     },
-    ["Dizzy (SpiderTree)"] = {
-        R15 = "rbxassetid://3361426436",
-        R6 = "rbxassetid://182435998"
-    },
-    ["Swoosh"] = {
-        R15 = "rbxassetid://3361487920",
-        R6 = "rbxassetid://182436842"
-    },
-    ["Spin Dance"] = {
-        R15 = "rbxassetid://3361481910",
-        R6 = "rbxassetid://182436935"
-    },
-    ["Hyped"] = {
-        R15 = "rbxassetid://3695333486",
-        R6 = "rbxassetid://182435998"
-    },
-    ["Twirl"] = {
-        R15 = "rbxassetid://3361499912",
-        R6 = "rbxassetid://182436842"
-    },
-    ["Tilt Walk"] = {
-        R15 = "rbxassetid://3361438942",
-        R6 = "rbxassetid://182435998"
-    },
-    ["Dança Clássica 1"] = {
-        R15 = "rbxassetid://507771019",
-        R6 = "rbxassetid://182435998"
-    },
-    ["Dança Clássica 2"] = {
-        R15 = "rbxassetid://507776043",
-        R6 = "rbxassetid://182436842"
-    },
-    ["Dança Clássica 3"] = {
-        R15 = "rbxassetid://507777268",
-        R6 = "rbxassetid://182436935"
-    },
-    ["Wave (Acenar)"] = {
-        R15 = "rbxassetid://10714346580",
-        R6 = "rbxassetid://128777973"
-    },
-    ["Point (Apontar)"] = {
-        R15 = "rbxassetid://10714347258",
-        R6 = "rbxassetid://128853357"
-    },
-    ["Laugh (Rir)"] = {
-        R15 = "rbxassetid://10714344445",
-        R6 = "rbxassetid://129423131"
+    {
+        Category = "Danças Virais & Clássicas (R15)",
+        Emotes = {
+            { Name = "Floss", ID = "10714340543" },
+            { Name = "Dizzy (SpiderTree)", ID = "3361426436" },
+            { Name = "Spin Dance", ID = "3361481910" },
+            { Name = "Hyped", ID = "3695333486" },
+            { Name = "Swoosh", ID = "3361487920" },
+            { Name = "Twirl", ID = "3361499912" },
+            { Name = "Tilt Walk", ID = "3361438942" },
+            { Name = "Dab", ID = "10714107111" },
+            { Name = "Dança Clássica 1", ID = "507771019" },
+            { Name = "Dança Clássica 2", ID = "507776043" },
+            { Name = "Dança Clássica 3", ID = "507777268" },
+            { Name = "Cheer (Torcer)", ID = "507770677" },
+            { Name = "Wave (Acenar)", ID = "10714346580" },
+            { Name = "Point (Apontar)", ID = "10714347258" },
+            { Name = "Laugh (Rir)", ID = "10714344445" },
+            { Name = "Shrug (Ombros)", ID = "10714348656" },
+            { Name = "Stadium (Estádio)", ID = "3361440866" },
+            { Name = "Tilt (Curvar)", ID = "3361464908" },
+            { Name = "Spasm (Spasm Dance)", ID = "3361474812" },
+            { Name = "Zombie (Dança Zumbi)", ID = "3361413867" }
+        }
     }
 }
 
-function AnimationEngine.Play(emoteName)
+function AnimationEngine.Stop()
+    if HubState.Animation.CurrentTrack then
+        pcall(function() HubState.Animation.CurrentTrack:Stop() end)
+        HubState.Animation.CurrentTrack = nil
+    end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+            if track.Priority == Enum.AnimationPriority.Action4 then
+                pcall(function() track:Stop() end)
+            end
+        end
+    end
+end
+
+function AnimationEngine.SetSpeed(spd)
+    HubState.Animation.Speed = tonumber(spd) or 1
+    if HubState.Animation.CurrentTrack then
+        pcall(function()
+            HubState.Animation.CurrentTrack:AdjustSpeed(HubState.Animation.Speed)
+        end)
+    end
+end
+
+function AnimationEngine.PlayRaw(rawId, emoteName)
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
 
-    local isR15 = (hum.RigType == Enum.HumanoidRigType.R15)
-    local entry = DualEmoteDatabase[emoteName]
-    if not entry then return end
-
-    local animId = isR15 and entry.R15 or entry.R6
-    if not animId then return end
-
     AnimationEngine.Stop()
 
     local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
-    local anim = Instance.new("Animation")
-    anim.AnimationId = animId
+    local cleanId = tostring(rawId):gsub("%D", "")
+    local track = nil
 
-    local success, track = pcall(function()
+    -- Pipeline 1: Tentativa direta com Animation instance (rbxassetid://)
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://" .. cleanId
+    local s1, t1 = pcall(function()
         return animator:LoadAnimation(anim)
     end)
+    if s1 and t1 then
+        track = t1
+    end
 
-    if success and track then
-        track.Priority = Enum.AnimationPriority.Action4
-        track.Looped = true
-        track:Play()
-        HubState.Animation.CurrentTrack = track
-    else
-        -- Fallback nativo: tentar chamar Animate.PlayEmote
+    -- Pipeline 2: game:GetObjects para unpack de bundle/UGC (Passinho do Jamal e similares)
+    if not track or (track and track.Length == 0) then
+        local sObjs, objs = pcall(function()
+            return game:GetObjects("rbxassetid://" .. cleanId)
+        end)
+        if sObjs and objs and #objs > 0 then
+            for _, obj in ipairs(objs) do
+                local found = (obj:IsA("Animation") and obj) or obj:FindFirstChildOfClass("Animation", true)
+                if found and found.AnimationId and found.AnimationId ~= "" then
+                    local s2, t2 = pcall(function()
+                        return animator:LoadAnimation(found)
+                    end)
+                    if s2 and t2 then
+                        track = t2
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    -- Pipeline 3: Fallback via HumanoidDescription
+    if not track and emoteName then
+        pcall(function()
+            local desc = hum:FindFirstChildOfClass("HumanoidDescription") or hum:GetAppliedDescription()
+            if desc then
+                desc:AddEmote(emoteName, tonumber(cleanId))
+                hum:PlayEmoteAsync(emoteName)
+            end
+        end)
+    end
+
+    -- Pipeline 4: Fallback Animate.PlayEmote
+    if not track and emoteName then
         local animateScript = char:FindFirstChild("Animate")
         local playEmoteBindable = animateScript and animateScript:FindFirstChild("PlayEmote")
         if playEmoteBindable and playEmoteBindable:IsA("BindableFunction") then
@@ -603,22 +787,45 @@ function AnimationEngine.Play(emoteName)
             end)
         end
     end
+
+    -- Se o track foi obtido e carregado com sucesso
+    if track then
+        track.Priority = Enum.AnimationPriority.Action4
+        track.Looped = true
+        track:Play()
+        local currentSpd = HubState.Animation.Speed or 1
+        pcall(function() track:AdjustSpeed(currentSpd) end)
+        HubState.Animation.CurrentTrack = track
+    end
 end
 
-function AnimationEngine.Stop()
-    if HubState.Animation.CurrentTrack then
-        HubState.Animation.CurrentTrack:Stop()
-        HubState.Animation.CurrentTrack = nil
-    end
-    -- Resetar poses paradas
+function AnimationEngine.Play(emoteName)
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
-            if track.Priority == Enum.AnimationPriority.Action4 then
-                track:Stop()
+    if not hum then return end
+
+    local isR15 = (hum.RigType == Enum.HumanoidRigType.R15)
+    local entry = DualEmoteDatabase[emoteName]
+    if not entry then
+        for name, data in pairs(DualEmoteDatabase) do
+            if name:lower():find(emoteName:lower(), 1, true) then
+                entry = data
+                emoteName = name
+                break
             end
         end
+    end
+    if not entry then return end
+
+    local targetId = isR15 and entry.R15 or entry.R6
+    if not targetId and isR15 then
+        targetId = entry.R15
+    elseif not targetId and not isR15 then
+        targetId = entry.R6 or entry.R15
+    end
+
+    if targetId then
+        AnimationEngine.PlayRaw(targetId, emoteName)
     end
 end
 
@@ -876,12 +1083,12 @@ end))
 -- ====================================================================
 local GuiRoot = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
-if GuiRoot:FindFirstChild("WaifuHub_V10_Definitive") then
-    GuiRoot.WaifuHub_V10_Definitive:Destroy()
+if GuiRoot:FindFirstChild("GoHub_V11_Final") then
+    GuiRoot.GoHub_V11_Final:Destroy()
 end
 
 local MainScreen = Instance.new("ScreenGui")
-MainScreen.Name = "WaifuHub_V10_Definitive"
+MainScreen.Name = "GoHub_V11_Final"
 MainScreen.ResetOnSpawn = false
 MainScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 MainScreen.Parent = GuiRoot
@@ -1040,7 +1247,7 @@ TitleLabel.Position = UDim2.new(0, 78, 0, 16)
 TitleLabel.Size = UDim2.new(0, 110, 0, 20)
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.Text = "WAIFU HUB"
+TitleLabel.Text = "GOHUB"
 TitleLabel.TextColor3 = HubState.Theme.Text
 TitleLabel.TextSize = 14
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1051,7 +1258,7 @@ SubTitleLabel.Position = UDim2.new(0, 78, 0, 36)
 SubTitleLabel.Size = UDim2.new(0, 110, 0, 16)
 SubTitleLabel.BackgroundTransparency = 1
 SubTitleLabel.Font = Enum.Font.Gotham
-SubTitleLabel.Text = "DEFINITIVE V10"
+SubTitleLabel.Text = "DEFINITIVE V11"
 SubTitleLabel.TextColor3 = HubState.Theme.AccentGlow
 SubTitleLabel.TextSize = 11
 SubTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1449,18 +1656,31 @@ local function DispatchCommand(rawText)
         end
     elseif cmd == "fling" then
         local targetName = args[1]
-        local found = TargetParser.FindPlayers(targetName)
-        if #found > 0 then
-            FlingEngine.InvisFling(found[1])
+        if targetName then
+            local found = TargetParser.FindPlayers(targetName)
+            if #found > 0 then
+                FlingEngine.FlingTarget(found[1])
+            end
         else
-            FlingEngine.ToggleFling(true)
+            FlingEngine.ToggleSpinFling(true)
         end
+    elseif cmd == "unfling" then
+        FlingEngine.ToggleSpinFling(false)
+        FlingEngine.ToggleWalkFling(false)
+        FlingEngine.LoopFling(nil)
+    elseif cmd == "walkfling" then
+        FlingEngine.ToggleWalkFling(true)
+    elseif cmd == "unwalkfling" or cmd == "nowalkfling" then
+        FlingEngine.ToggleWalkFling(false)
+    elseif cmd == "antifling" then
+        FlingEngine.ToggleAntiFling(true)
+    elseif cmd == "unantifling" or cmd == "noantifling" then
+        FlingEngine.ToggleAntiFling(false)
     elseif cmd == "loopfling" then
         local targetName = args[1]
         local found = TargetParser.FindPlayers(targetName)
         if #found > 0 then FlingEngine.LoopFling(found[1]) end
-    elseif cmd == "unfling" or cmd == "unloopfling" then
-        FlingEngine.ToggleFling(false)
+    elseif cmd == "unloopfling" then
         FlingEngine.LoopFling(nil)
     elseif cmd == "fullbright" or cmd == "fb" then
         LightingEngine.ToggleFullbright(true)
@@ -1470,14 +1690,18 @@ local function DispatchCommand(rawText)
         LightingEngine.ToggleNoFog(true)
     elseif cmd == "dance" then
         local emoteName = args[1]
-        for name, _ in pairs(DualEmoteDatabase) do
-            if name:lower():find(emoteName:lower()) then
-                AnimationEngine.Play(name)
-                break
+        if emoteName then
+            if tonumber(emoteName) then
+                AnimationEngine.PlayRaw(emoteName, "Custom_" .. emoteName)
+            else
+                AnimationEngine.Play(emoteName)
             end
         end
     elseif cmd == "stopdance" or cmd == "undance" then
         AnimationEngine.Stop()
+    elseif cmd == "animspeed" or cmd == "dancespeed" then
+        local spd = tonumber(args[1]) or 1
+        AnimationEngine.SetSpeed(spd)
     elseif cmd == "antisit" then
         CharEngine.ToggleAntiSit(true)
     elseif cmd == "unantisit" then
@@ -1569,13 +1793,17 @@ AddButton(tpPage, "Teleportar para Alvo", function()
     end
 end)
 
-AddSection(tpPage, "Sistemas de Fling")
-AddToggle(tpPage, "Ativar Fling Normal (Girar)", false, function(s) FlingEngine.ToggleFling(s) end)
-AddButton(tpPage, "Executar InvisFling no Alvo", function()
-    if selectedPlayer then FlingEngine.InvisFling(selectedPlayer) end
+AddSection(tpPage, "Sistemas de Fling (Motor Infinite Yield)")
+AddToggle(tpPage, "WalkFling (Tocar e Lançar - Suave)", false, function(s) FlingEngine.ToggleWalkFling(s) end)
+AddToggle(tpPage, "SpinFling (Giro Clássico do IY)", false, function(s) FlingEngine.ToggleSpinFling(s) end)
+AddButton(tpPage, "Fling Instantâneo no Alvo", function()
+    if selectedPlayer then FlingEngine.FlingTarget(selectedPlayer) end
 end)
-AddToggle(tpPage, "Ativar LoopFling no Alvo", false, function(s)
+AddToggle(tpPage, "LoopFling no Alvo Selecionado", false, function(s)
     if s then FlingEngine.LoopFling(selectedPlayer) else FlingEngine.LoopFling(nil) end
+end)
+AddToggle(tpPage, "Anti-Fling (Imunidade a Flings)", false, function(s)
+    FlingEngine.ToggleAntiFling(s)
 end)
 
 AddSection(tpPage, "Lista de Jogadores no Servidor")
@@ -1709,14 +1937,25 @@ AddSlider(visualPage, "Raio do FOV", 50, 350, 120, function(v)
     FOVCircle.Size = UDim2.new(0, v * 2, 0, v * 2)
 end)
 
--- 6. DANÇAS & EMOTES (R6 & R15 DUAL ENGINE)
+-- 6. DANÇAS & EMOTES (R15 EXPANDIDO, PASSINHO DO JAMAL & IY SUITE)
 local animPage = CreatePage("Danças")
-AddSection(animPage, "Emotes com Resolução Automática R6 / R15")
-for emoteName, _ in pairs(DualEmoteDatabase) do
-    AddButton(animPage, "Dança: " .. emoteName, function() AnimationEngine.Play(emoteName) end)
+
+AddSection(animPage, "Controle de Dança")
+AddButton(animPage, "Parar Todas as Danças", function()
+    AnimationEngine.Stop()
+end)
+AddSlider(animPage, "Velocidade da Animação (%)", 25, 300, 100, function(pct)
+    AnimationEngine.SetSpeed(pct / 100)
+end)
+
+for _, cat in ipairs(EmoteCategories) do
+    AddSection(animPage, cat.Category)
+    for _, em in ipairs(cat.Emotes) do
+        AddButton(animPage, "Dança: " .. em.Name, function()
+            AnimationEngine.PlayRaw(em.ID, em.Name)
+        end)
+    end
 end
-AddSection(animPage, "Controle")
-AddButton(animPage, "Parar Todas as Danças", function() AnimationEngine.Stop() end)
 
 -- 7. UTILIDADES DO PERSONAGEM
 local charPage = CreatePage("Personagem")
@@ -1779,4 +2018,4 @@ if defaultTabBtn then
     defaultTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
-print("Waifu Hub V10 Definitive Loaded Cleanly!")
+print("GoHub V11 Final Loaded Cleanly!")
