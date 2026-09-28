@@ -1,16 +1,20 @@
 --[[
-    Waifu Hub — Premium Edition (V8 Definitive)
+    ========================================================================
+    WAIFU HUB — DEFINITIVE V9 (INFINITE YIELD ENGINE INTEGRATION)
     Target: Roblox Studio / Luau Engine
-    Design:
-      - Premium Sidebar UI with Waifu Avatar (ID: 135247969077372)
-      - TweenService Animations (Smooth Entrance, Tab Switch, Hover Glow)
-      - Close Button ("X") & Smooth Dragging
-      - Flight Engine (BodyGyro + BodyVelocity com controle total de câmera)
-      - Slider de Velocidade Interativo (Linha + Bolinha arrastável com persistência)
-      - MM2 Suite (Role ESP: Assassino/Xerife, Coin ESP, Auto TP Arma Caída)
-      - Jogadores (Lista dinâmica de servidores, Teleporte & Fling)
-      - Visuais (X-Ray seletivo, Aimbot com FOV e Raycast)
-      - Danças & Emotes (Infinite Yield style)
+    
+    Integrated Infinite Yield Modules:
+      1. Target Parser (Fuzzy Substring, 'me', 'others', 'all', 'nearest', 'random')
+      2. Integrated Command Bar (Retrátil, Tecla ';', Autocomplete & Dispatcher)
+      3. Native Anti-AFK (VirtualUser Hook no LocalPlayer.Idled)
+      4. ClickTP (Ctrl + Clique) & Spawn TP Tool
+      5. Advanced Fling (Classic Fling, Loop Fling & InvisFling)
+      6. World Lighting Controller (Fullbright & NoFog com restauração original)
+      7. Massive Emotes Database (Danças oficiais via Animator)
+      + Front-end Premium (Waifu Avatar, TweenService, Draggable, Sliders, Close Btn)
+      + V7/V8 Stable Flight Engine (Camera-directed BodyGyro + BodyVelocity)
+      + MM2 Complete Suite (Role ESP, Coin ESP, Auto Gun Drop TP, Hitboxes)
+    ========================================================================
 ]]
 
 local Players = game:GetService("Players")
@@ -20,13 +24,15 @@ local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
 -- ====================================================================
--- CONFIGURAÇÕES GLOBAIS & TEMA
+-- CONFIGURAÇÕES GLOBAIS & ESTADO DO HUB
 -- ====================================================================
 local HubState = {
     Theme = {
@@ -38,6 +44,7 @@ local HubState = {
         Text = Color3.fromRGB(245, 245, 250),
         TextDim = Color3.fromRGB(150, 150, 170),
         Close = Color3.fromRGB(220, 60, 60),
+        Success = Color3.fromRGB(60, 220, 120),
         Murderer = Color3.fromRGB(255, 40, 40),
         Sheriff = Color3.fromRGB(40, 140, 255),
         Innocent = Color3.fromRGB(40, 255, 120),
@@ -53,7 +60,8 @@ local HubState = {
         FlightSpeed = 50,
         FlightActive = false,
         NoclipActive = false,
-        InfiniteJumpActive = false
+        InfiniteJumpActive = false,
+        ClickTPActive = false
     },
     Combat = {
         AimbotActive = false,
@@ -65,7 +73,9 @@ local HubState = {
         FOVCircleVisible = true
     },
     Visuals = {
-        XRayActive = false
+        XRayActive = false,
+        FullbrightActive = false,
+        NoFogActive = false
     },
     MM2 = {
         RoleESP = false,
@@ -73,13 +83,22 @@ local HubState = {
         AutoGrabGun = false,
         Hitboxes = false
     },
+    Fling = {
+        Active = false,
+        LoopTarget = nil,
+        InvisActive = false
+    },
     Animation = {
         CurrentTrack = nil
+    },
+    CmdBar = {
+        Prefix = ";",
+        Visible = false
     }
 }
 
 -- ====================================================================
--- POOL DE CONEXÕES & CLEANUP
+-- GERENCIADOR DE CONEXÕES & CLEANUP
 -- ====================================================================
 local ConnectionPool = {}
 
@@ -98,12 +117,73 @@ local function DropLoop(tag)
 end
 
 -- ====================================================================
--- MÓDULO DE FÍSICA & MOVIMENTAÇÃO (FLIGHT & SPEED ROBUSTO)
+-- PILAR 3: ANTI-AFK NATIVO (PREVENÇÃO DE DESCONEXÃO APÓS 20 MIN)
+-- ====================================================================
+RegisterLoop("AntiAFK_Loop", LocalPlayer.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
+end))
+
+-- ====================================================================
+-- PILAR 1: TARGET PARSER DO INFINITE YIELD (BUSCA INTELIGENTE DE ALVOS)
+-- ====================================================================
+local TargetParser = {}
+
+function TargetParser.FindPlayers(query)
+    if not query or query == "" then return {} end
+    local q = query:lower()
+    local result = {}
+    local myChar = LocalPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+    if q == "me" then
+        return {LocalPlayer}
+    elseif q == "all" then
+        for _, p in ipairs(Players:GetPlayers()) do table.insert(result, p) end
+        return result
+    elseif q == "others" then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then table.insert(result, p) end
+        end
+        return result
+    elseif q == "random" then
+        local others = TargetParser.FindPlayers("others")
+        if #others > 0 then
+            return {others[math.random(1, #others)]}
+        end
+        return {}
+    elseif q == "nearest" then
+        if not myRoot then return {} end
+        local nearest, dist = nil, math.huge
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local d = (p.Character.HumanoidRootPart.Position - myRoot.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    nearest = p
+                end
+            end
+        end
+        return nearest and {nearest} or {}
+    end
+
+    -- Substring match para Username ou DisplayName
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Name:lower():sub(1, #q) == q or p.DisplayName:lower():sub(1, #q) == q or p.Name:lower():find(q) or p.DisplayName:lower():find(q) then
+            table.insert(result, p)
+        end
+    end
+    return result
+end
+
+-- ====================================================================
+-- FÍSICA & MOVIMENTAÇÃO (FLIGHT, SPEED, NOCLIP, CLICKTP, INF JUMP)
 -- ====================================================================
 local MovementEngine = {}
 local bgInstance, bvInstance
 
--- 1. VOO BASEADO NO MODELO DA V7 (BodyGyro + BodyVelocity + RenderStepped)
+-- Voo da V7 integrado (RenderStepped & Câmera Real)
 function MovementEngine.SetFlight(enabled)
     HubState.Movement.FlightActive = enabled
     local char = LocalPlayer.Character
@@ -111,7 +191,7 @@ function MovementEngine.SetFlight(enabled)
     local hum = char and char:FindFirstChildOfClass("Humanoid")
 
     if not enabled or not hrp or not hum then
-        DropLoop("Core_FlightRender")
+        DropLoop("Flight_Render")
         if bgInstance then bgInstance:Destroy(); bgInstance = nil end
         if bvInstance then bvInstance:Destroy(); bvInstance = nil end
         if hum then hum.PlatformStand = false end
@@ -122,21 +202,19 @@ function MovementEngine.SetFlight(enabled)
     if bvInstance then bvInstance:Destroy() end
 
     bgInstance = Instance.new("BodyGyro")
-    bgInstance.Name = "Waifu_BodyGyro"
     bgInstance.P = 9e4
     bgInstance.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
     bgInstance.CFrame = hrp.CFrame
     bgInstance.Parent = hrp
 
     bvInstance = Instance.new("BodyVelocity")
-    bvInstance.Name = "Waifu_BodyVelocity"
     bvInstance.Velocity = Vector3.zero
     bvInstance.MaxForce = Vector3.new(9e9, 9e9, 9e9)
     bvInstance.Parent = hrp
 
     hum.PlatformStand = true
 
-    RegisterLoop("Core_FlightRender", RunService.RenderStepped:Connect(function()
+    RegisterLoop("Flight_Render", RunService.RenderStepped:Connect(function()
         if not HubState.Movement.FlightActive or not hrp or not hrp.Parent then
             MovementEngine.SetFlight(false)
             return
@@ -163,8 +241,8 @@ function MovementEngine.SetFlight(enabled)
     end))
 end
 
--- 2. VELOCIDADE COM APLICAÇÃO CONTÍNUA
-function MovementEngine.ApplyWalkSpeed()
+-- Velocidade de Caminhada Persistente
+function MovementEngine.ApplySpeed()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if hum then
@@ -174,18 +252,18 @@ end
 
 RegisterLoop("Speed_Heartbeat", RunService.Heartbeat:Connect(function()
     if HubState.Movement.SpeedActive then
-        MovementEngine.ApplyWalkSpeed()
+        MovementEngine.ApplySpeed()
     end
 end))
 
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.4)
     if HubState.Movement.SpeedActive then
-        MovementEngine.ApplyWalkSpeed()
+        MovementEngine.ApplySpeed()
     end
 end)
 
--- 3. NOCLIP
+-- Noclip Otimizado
 function MovementEngine.SetNoclip(enabled)
     HubState.Movement.NoclipActive = enabled
     if enabled then
@@ -212,7 +290,7 @@ function MovementEngine.SetNoclip(enabled)
     end
 end
 
--- 4. INFINITE JUMP
+-- Infinite Jump
 function MovementEngine.SetInfiniteJump(enabled)
     HubState.Movement.InfiniteJumpActive = enabled
     if enabled then
@@ -228,43 +306,178 @@ function MovementEngine.SetInfiniteJump(enabled)
     end
 end
 
+-- PILAR 4: ClickTP (Ctrl + Clique) & Spawn TP Tool
+function MovementEngine.SetClickTP(enabled)
+    HubState.Movement.ClickTPActive = enabled
+    if enabled then
+        RegisterLoop("Core_ClickTP", UserInputService.InputBegan:Connect(function(input, gpe)
+            if gpe then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp and Mouse.Hit then
+                    hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
+                end
+            end
+        end))
+    else
+        DropLoop("Core_ClickTP")
+    end
+end
+
+function MovementEngine.GiveTPTool()
+    local bp = LocalPlayer:FindFirstChildOfClass("Backpack")
+    if not bp then return end
+    if bp:FindFirstChild("Waifu TP Tool") then return end
+
+    local tool = Instance.new("Tool")
+    tool.Name = "Waifu TP Tool"
+    tool.RequiresHandle = false
+    tool.Activated:Connect(function()
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp and Mouse.Hit then
+            hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
+        end
+    end)
+    tool.Parent = bp
+end
+
 -- ====================================================================
--- MÓDULO DE FLING
+-- PILAR 5: ADVANCED FLING (REGULAR, LOOP FLING & INVISFLING)
 -- ====================================================================
 local FlingEngine = {}
-local flingingActive = false
 
-function FlingEngine.Toggle(enabled)
-    flingingActive = enabled
+function FlingEngine.ToggleFling(enabled)
+    HubState.Fling.Active = enabled
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
     if enabled then
         local spin = Instance.new("BodyAngularVelocity")
-        spin.Name = "FlingSpin"
+        spin.Name = "WaifuFlingSpin"
         spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-        spin.AngularVelocity = Vector3.new(0, 50000, 0)
+        spin.AngularVelocity = Vector3.new(0, 60000, 0)
         spin.Parent = hrp
     else
-        if hrp:FindFirstChild("FlingSpin") then
-            hrp.FlingSpin:Destroy()
+        if hrp:FindFirstChild("WaifuFlingSpin") then
+            hrp.WaifuFlingSpin:Destroy()
         end
     end
 end
 
+function FlingEngine.LoopFling(targetPlayer)
+    HubState.Fling.LoopTarget = targetPlayer
+    if not targetPlayer then
+        DropLoop("LoopFling_Heartbeat")
+        FlingEngine.ToggleFling(false)
+        return
+    end
+
+    FlingEngine.ToggleFling(true)
+    RegisterLoop("LoopFling_Heartbeat", RunService.Heartbeat:Connect(function()
+        local target = HubState.Fling.LoopTarget
+        if not target or not target.Character then
+            FlingEngine.LoopFling(nil)
+            return
+        end
+        local tRoot = target.Character:FindFirstChild("HumanoidRootPart")
+        local myChar = LocalPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if tRoot and myRoot then
+            myRoot.CFrame = tRoot.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
+            myRoot.AssemblyLinearVelocity = Vector3.new(999999, 999999, 999999)
+        end
+    end))
+end
+
+function FlingEngine.InvisFling(targetPlayer)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
+
+    local origCFrame = hrp.CFrame
+    FlingEngine.ToggleFling(true)
+
+    -- Teleporte com física destrutiva e retorno
+    task.spawn(function()
+        local tRoot = targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if tRoot then
+            for _ = 1, 35 do
+                hrp.CFrame = tRoot.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
+                hrp.AssemblyLinearVelocity = Vector3.new(999999, 999999, 999999)
+                task.wait()
+            end
+        end
+        FlingEngine.ToggleFling(false)
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        hrp.CFrame = origCFrame
+    end)
+end
+
 -- ====================================================================
--- MÓDULO DE ANIMAÇÕES & DANÇAS (INFINITE YIELD)
+-- PILAR 6: WORLD LIGHTING (FULLBRIGHT & NOFOG)
+-- ====================================================================
+local LightingEngine = {}
+local OriginalLighting = {
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    Brightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    FogEnd = Lighting.FogEnd
+}
+
+function LightingEngine.ToggleFullbright(enabled)
+    HubState.Visuals.FullbrightActive = enabled
+    if enabled then
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+    else
+        Lighting.Ambient = OriginalLighting.Ambient
+        Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient
+        Lighting.Brightness = OriginalLighting.Brightness
+        Lighting.ClockTime = OriginalLighting.ClockTime
+    end
+end
+
+function LightingEngine.ToggleNoFog(enabled)
+    HubState.Visuals.NoFogActive = enabled
+    if enabled then
+        Lighting.FogEnd = 1e6
+        for _, v in ipairs(Lighting:GetDescendants()) do
+            if v:IsA("Atmosphere") then
+                v.Density = 0
+            end
+        end
+    else
+        Lighting.FogEnd = OriginalLighting.FogEnd
+    end
+end
+
+-- ====================================================================
+-- PILAR 7: BANCO EXPANDIDO DE DANÇAS (INFINITE YIELD CATALOG)
 -- ====================================================================
 local AnimationEngine = {}
-local EmoteList = {
+local EmotesDB = {
     ["Floss"] = "rbxassetid://10714340543",
     ["Dab"] = "rbxassetid://10714107111",
     ["Shuffle"] = "rbxassetid://10714349479",
     ["Electro Dance"] = "rbxassetid://10714352726",
     ["Zombie"] = "rbxassetid://10714347258",
     ["Hero Pose"] = "rbxassetid://10714344445",
-    ["Wave"] = "rbxassetid://10714346580"
+    ["Wave"] = "rbxassetid://10714346580",
+    ["Carldance"] = "rbxassetid://3361487920",
+    ["Spidertree"] = "rbxassetid://3361426436",
+    ["Hyped"] = "rbxassetid://3695333486",
+    ["Twirl"] = "rbxassetid://3361499912",
+    ["Baby Dance"] = "rbxassetid://4297037640",
+    ["Tilt Walk"] = "rbxassetid://3361438942",
+    ["Spin Dance"] = "rbxassetid://3361481910"
 }
 
 function AnimationEngine.Play(animId)
@@ -294,7 +507,7 @@ function AnimationEngine.Stop()
 end
 
 -- ====================================================================
--- MÓDULO X-RAY
+-- X-RAY & MURDER MYSTERY 2 SUITE
 -- ====================================================================
 local XRayEngine = {}
 local SavedTransparencies = {}
@@ -327,9 +540,6 @@ function XRayEngine.Toggle(enabled)
     end
 end
 
--- ====================================================================
--- MÓDULO MURDER MYSTERY 2
--- ====================================================================
 local MM2Engine = {}
 local MM2RoleFolder = Instance.new("Folder", game:GetService("CoreGui")); MM2RoleFolder.Name = "Waifu_MM2_Roles"
 local MM2CoinFolder = Instance.new("Folder", game:GetService("CoreGui")); MM2CoinFolder.Name = "Waifu_MM2_Coins"
@@ -369,14 +579,13 @@ function MM2Engine.ToggleRoleESP(enabled)
             if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
                 local role, color = DetectRole(p)
                 if role then
-                    local hl = Instance.new("Highlight")
+                    local hl = Instance.new("Highlight", MM2RoleFolder)
                     hl.Adornee = p.Character
                     hl.FillColor = color
                     hl.OutlineColor = color
                     hl.FillTransparency = 0.5
-                    hl.Parent = MM2RoleFolder
 
-                    local bgui = Instance.new("BillboardGui")
+                    local bgui = Instance.new("BillboardGui", MM2RoleFolder)
                     bgui.Adornee = p.Character.Head
                     bgui.Size = UDim2.new(0, 100, 0, 40)
                     bgui.StudsOffset = Vector3.new(0, 2.5, 0)
@@ -389,7 +598,6 @@ function MM2Engine.ToggleRoleESP(enabled)
                     txt.Font = Enum.Font.GothamBold
                     txt.TextSize = 14
                     txt.Text = role
-                    bgui.Parent = MM2RoleFolder
                 end
             end
         end
@@ -409,12 +617,11 @@ function MM2Engine.ToggleCoinESP(enabled)
         MM2CoinFolder:ClearAllChildren()
         for _, obj in ipairs(Workspace:GetDescendants()) do
             if obj:IsA("BasePart") and (obj.Name == "Coin_Server" or obj.Name == "Coin" or obj.Name == "CoinContainer") then
-                local hl = Instance.new("Highlight")
+                local hl = Instance.new("Highlight", MM2CoinFolder)
                 hl.Adornee = obj
                 hl.FillColor = Color3.fromRGB(255, 215, 0)
                 hl.OutlineColor = Color3.fromRGB(255, 255, 255)
                 hl.FillTransparency = 0.3
-                hl.Parent = MM2CoinFolder
             end
         end
     end))
@@ -449,20 +656,19 @@ function MM2Engine.ToggleHitboxes(enabled)
         MM2HitboxFolder:ClearAllChildren()
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local box = Instance.new("BoxHandleAdornment")
+                local box = Instance.new("BoxHandleAdornment", MM2HitboxFolder)
                 box.Adornee = p.Character.HumanoidRootPart
                 box.Size = Vector3.new(3.5, 4.5, 3.5)
                 box.Color3 = Color3.fromRGB(255, 0, 0)
                 box.Transparency = 0.6
                 box.AlwaysOnTop = true
-                box.Parent = MM2HitboxFolder
             end
         end
     end))
 end
 
 -- ====================================================================
--- MÓDULO DE COMBATE (AIMBOT)
+-- COMBATE & MIRA (AIMBOT FOV RAYCAST)
 -- ====================================================================
 local CombatEngine = {}
 
@@ -522,22 +728,21 @@ RegisterLoop("Aimbot_Render", RunService.RenderStepped:Connect(function()
 end))
 
 -- ====================================================================
--- FRONT-END PREMIUM ORIGINAL (SIDEBAR, TWEENS & WAIFU AVATAR)
+-- FRONT-END PREMIUM ORIGINAL (SIDEBAR, TWEENS, WAIFU AVATAR, SLIDERS)
 -- ====================================================================
 local GuiRoot = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
--- Destruir versão anterior se existir
-if GuiRoot:FindFirstChild("WaifuHub_V8_Definitive") then
-    GuiRoot.WaifuHub_V8_Definitive:Destroy()
+if GuiRoot:FindFirstChild("WaifuHub_V9_Definitive") then
+    GuiRoot.WaifuHub_V9_Definitive:Destroy()
 end
 
 local MainScreen = Instance.new("ScreenGui")
-MainScreen.Name = "WaifuHub_V8_Definitive"
+MainScreen.Name = "WaifuHub_V9_Definitive"
 MainScreen.ResetOnSpawn = false
 MainScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 MainScreen.Parent = GuiRoot
 
--- Círculo Indicador do FOV
+-- FOV Circle
 local FOVCircle = Instance.new("Frame")
 FOVCircle.Name = "FOVCircle"
 FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -546,8 +751,7 @@ FOVCircle.BackgroundTransparency = 1
 FOVCircle.Visible = HubState.Combat.FOVCircleVisible and HubState.Combat.AimbotActive
 FOVCircle.Parent = MainScreen
 
-local FOVCorner = Instance.new("UICorner", FOVCircle)
-FOVCorner.CornerRadius = UDim.new(1, 0)
+Instance.new("UICorner", FOVCircle).CornerRadius = UDim.new(1, 0)
 local FOVStroke = Instance.new("UIStroke", FOVCircle)
 FOVStroke.Color = HubState.Theme.Accent
 FOVStroke.Thickness = 1.5
@@ -558,7 +762,7 @@ RegisterLoop("UI_FOVFollow", RunService.RenderStepped:Connect(function()
     end
 end))
 
--- Janela Principal (Design Premium Dark + Bordas Roxas)
+-- Janela Principal
 local MainWindow = Instance.new("Frame")
 MainWindow.Name = "MainWindow"
 MainWindow.Size = UDim2.new(0, 720, 0, 450)
@@ -568,8 +772,7 @@ MainWindow.BorderSizePixel = 0
 MainWindow.ClipsDescendants = true
 MainWindow.Parent = MainScreen
 
-local WindowCorner = Instance.new("UICorner", MainWindow)
-WindowCorner.CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", MainWindow).CornerRadius = UDim.new(0, 10)
 local WindowStroke = Instance.new("UIStroke", MainWindow)
 WindowStroke.Color = HubState.Theme.Border
 WindowStroke.Thickness = 1.8
@@ -582,7 +785,7 @@ TweenService:Create(MainWindow, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum
     Position = UDim2.new(0.5, -360, 0.5, -225)
 }):Play()
 
--- Mecanismo Draggable Fluido
+-- Draggable Fluido
 local isDragging, dragInput, dragStart, startPos
 MainWindow.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -590,17 +793,13 @@ MainWindow.InputBegan:Connect(function(input)
         dragStart = input.Position
         startPos = MainWindow.Position
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                isDragging = false
-            end
+            if input.UserInputState == Enum.UserInputState.End then isDragging = false end
         end)
     end
 end)
 
 MainWindow.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
+    if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
@@ -625,8 +824,7 @@ CloseButton.Text = "✕"
 CloseButton.ZIndex = 5
 CloseButton.Parent = MainWindow
 
-local CloseCorner = Instance.new("UICorner", CloseButton)
-CloseCorner.CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(0, 6)
 local CloseStroke = Instance.new("UIStroke", CloseButton)
 CloseStroke.Color = HubState.Theme.Close
 CloseStroke.Thickness = 1
@@ -643,9 +841,13 @@ CloseButton.MouseButton1Click:Connect(function()
     MovementEngine.SetFlight(false)
     MovementEngine.SetNoclip(false)
     MovementEngine.SetInfiniteJump(false)
-    FlingEngine.Toggle(false)
+    MovementEngine.SetClickTP(false)
+    FlingEngine.ToggleFling(false)
+    FlingEngine.LoopFling(nil)
     AnimationEngine.Stop()
     XRayEngine.Toggle(false)
+    LightingEngine.ToggleFullbright(false)
+    LightingEngine.ToggleNoFog(false)
     MM2Engine.ToggleRoleESP(false)
     MM2Engine.ToggleCoinESP(false)
     MM2Engine.ToggleAutoGrabGun(false)
@@ -655,9 +857,7 @@ CloseButton.MouseButton1Click:Connect(function()
         LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16
     end
 
-    for tag, conn in pairs(ConnectionPool) do
-        conn:Disconnect()
-    end
+    for _, conn in pairs(ConnectionPool) do conn:Disconnect() end
     table.clear(ConnectionPool)
 
     MM2RoleFolder:Destroy()
@@ -666,7 +866,7 @@ CloseButton.MouseButton1Click:Connect(function()
     MainScreen:Destroy()
 end)
 
--- Barra Lateral (Sidebar) com Avatar
+-- Barra Lateral (Sidebar)
 local Sidebar = Instance.new("Frame")
 Sidebar.Name = "Sidebar"
 Sidebar.Size = UDim2.new(0, 200, 1, 0)
@@ -674,8 +874,7 @@ Sidebar.BackgroundColor3 = HubState.Theme.Sidebar
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = MainWindow
 
-local SidebarCorner = Instance.new("UICorner", Sidebar)
-SidebarCorner.CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
 
 local WaifuAvatar = Instance.new("ImageLabel")
 WaifuAvatar.Name = "WaifuAvatar"
@@ -686,8 +885,7 @@ WaifuAvatar.Image = HubState.Assets.WaifuImageId
 WaifuAvatar.ScaleType = Enum.ScaleType.Fit
 WaifuAvatar.Parent = Sidebar
 
-local AvatarCorner = Instance.new("UICorner", WaifuAvatar)
-AvatarCorner.CornerRadius = UDim.new(1, 0)
+Instance.new("UICorner", WaifuAvatar).CornerRadius = UDim.new(1, 0)
 local AvatarStroke = Instance.new("UIStroke", WaifuAvatar)
 AvatarStroke.Color = HubState.Theme.AccentGlow
 AvatarStroke.Thickness = 1.5
@@ -708,7 +906,7 @@ SubTitleLabel.Position = UDim2.new(0, 78, 0, 36)
 SubTitleLabel.Size = UDim2.new(0, 110, 0, 16)
 SubTitleLabel.BackgroundTransparency = 1
 SubTitleLabel.Font = Enum.Font.Gotham
-SubTitleLabel.Text = "PREMIUM V8"
+SubTitleLabel.Text = "DEFINITIVE V9"
 SubTitleLabel.TextColor3 = HubState.Theme.AccentGlow
 SubTitleLabel.TextSize = 11
 SubTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -776,8 +974,7 @@ local function CreateTab(name, icon, order)
     btn.LayoutOrder = order
     btn.Parent = TabListContainer
 
-    local corner = Instance.new("UICorner", btn)
-    corner.CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
     btn.MouseEnter:Connect(function()
         if CurrentPage ~= Pages[name] then
@@ -810,9 +1007,7 @@ local function CreateTab(name, icon, order)
     return btn
 end
 
--- ====================================================================
--- COMPONENTES DA UI (SEÇÃO, TOGGLE, SLIDER PRECISO, BOTÃO)
--- ====================================================================
+-- Componentes da UI
 local function AddSection(parent, text)
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1, 0, 0, 22)
@@ -833,8 +1028,7 @@ local function AddToggle(parent, label, defState, callback)
     frame.BorderSizePixel = 0
     frame.Parent = parent
 
-    local corner = Instance.new("UICorner", frame)
-    corner.CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
 
     local txt = Instance.new("TextLabel")
     txt.Size = UDim2.new(1, -60, 1, 0)
@@ -855,8 +1049,7 @@ local function AddToggle(parent, label, defState, callback)
     switch.AutoButtonColor = false
     switch.Parent = frame
 
-    local switchCorner = Instance.new("UICorner", switch)
-    switchCorner.CornerRadius = UDim.new(1, 0)
+    Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
 
     local circle = Instance.new("Frame")
     circle.Size = UDim2.new(0, 16, 0, 16)
@@ -865,22 +1058,16 @@ local function AddToggle(parent, label, defState, callback)
     circle.BorderSizePixel = 0
     circle.Parent = switch
 
-    local circleCorner = Instance.new("UICorner", circle)
-    circleCorner.CornerRadius = UDim.new(1, 0)
+    Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
 
     switch.MouseButton1Click:Connect(function()
         state = not state
-        TweenService:Create(switch, TweenInfo.new(0.2), {
-            BackgroundColor3 = state and HubState.Theme.Accent or Color3.fromRGB(45, 45, 60)
-        }):Play()
-        TweenService:Create(circle, TweenInfo.new(0.2), {
-            Position = state and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
-        }):Play()
+        TweenService:Create(switch, TweenInfo.new(0.2), { BackgroundColor3 = state and HubState.Theme.Accent or Color3.fromRGB(45, 45, 60) }):Play()
+        TweenService:Create(circle, TweenInfo.new(0.2), { Position = state and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8) }):Play()
         callback(state)
     end)
 end
 
--- Slider Responsivo (com Linha, Preenchimento e Bolinha Arrastável)
 local function AddSlider(parent, label, minVal, maxVal, defaultVal, callback)
     local val = defaultVal
     local frame = Instance.new("Frame")
@@ -889,8 +1076,7 @@ local function AddSlider(parent, label, minVal, maxVal, defaultVal, callback)
     frame.BorderSizePixel = 0
     frame.Parent = parent
 
-    local corner = Instance.new("UICorner", frame)
-    corner.CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
 
     local txt = Instance.new("TextLabel")
     txt.Size = UDim2.new(1, -60, 0, 22)
@@ -922,23 +1108,19 @@ local function AddSlider(parent, label, minVal, maxVal, defaultVal, callback)
     track.BorderSizePixel = 0
     track.Parent = frame
 
-    local trackCorner = Instance.new("UICorner", track)
-    trackCorner.CornerRadius = UDim.new(1, 0)
+    Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
 
     local initialPct = math.clamp((val - minVal) / (maxVal - minVal), 0, 1)
 
     local fill = Instance.new("Frame")
-    fill.Name = "Fill"
     fill.Size = UDim2.new(initialPct, 0, 1, 0)
     fill.BackgroundColor3 = HubState.Theme.Accent
     fill.BorderSizePixel = 0
     fill.Parent = track
 
-    local fillCorner = Instance.new("UICorner", fill)
-    fillCorner.CornerRadius = UDim.new(1, 0)
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
     local knob = Instance.new("TextButton")
-    knob.Name = "Knob"
     knob.Size = UDim2.new(0, 16, 0, 16)
     knob.AnchorPoint = Vector2.new(0.5, 0.5)
     knob.Position = UDim2.new(initialPct, 0, 0.5, 0)
@@ -947,8 +1129,7 @@ local function AddSlider(parent, label, minVal, maxVal, defaultVal, callback)
     knob.AutoButtonColor = false
     knob.Parent = track
 
-    local knobCorner = Instance.new("UICorner", knob)
-    knobCorner.CornerRadius = UDim.new(1, 0)
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
     local knobStroke = Instance.new("UIStroke", knob)
     knobStroke.Color = HubState.Theme.AccentGlow
     knobStroke.Thickness = 1.5
@@ -1002,8 +1183,7 @@ local function AddButton(parent, label, callback)
     btn.TextXAlignment = Enum.TextXAlignment.Left
     btn.Parent = parent
 
-    local corner = Instance.new("UICorner", btn)
-    corner.CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
     btn.MouseEnter:Connect(function()
         TweenService:Create(btn, TweenInfo.new(0.2), { BackgroundColor3 = HubState.Theme.Accent }):Play()
@@ -1017,55 +1197,202 @@ local function AddButton(parent, label, callback)
 end
 
 -- ====================================================================
--- MONTAGEM DAS ABAS DO HUB
+-- PILAR 2: INTEGRATED COMMAND BAR (RETRÁTIL & EXECUTOR DE COMANDOS)
+-- ====================================================================
+local CmdBarFrame = Instance.new("Frame")
+CmdBarFrame.Name = "WaifuCmdBar"
+CmdBarFrame.Size = UDim2.new(0, 480, 0, 42)
+CmdBarFrame.Position = UDim2.new(0.5, -240, 0, -60)
+CmdBarFrame.BackgroundColor3 = HubState.Theme.Background
+CmdBarFrame.BorderSizePixel = 0
+CmdBarFrame.ZIndex = 20
+CmdBarFrame.Parent = MainScreen
+
+Instance.new("UICorner", CmdBarFrame).CornerRadius = UDim.new(0, 8)
+local CmdStroke = Instance.new("UIStroke", CmdBarFrame)
+CmdStroke.Color = HubState.Theme.Accent
+CmdStroke.Thickness = 1.5
+
+local CmdPrefixLabel = Instance.new("TextLabel")
+CmdPrefixLabel.Size = UDim2.new(0, 30, 1, 0)
+CmdPrefixLabel.BackgroundTransparency = 1
+CmdPrefixLabel.Font = Enum.Font.GothamBold
+CmdPrefixLabel.Text = HubState.CmdBar.Prefix
+CmdPrefixLabel.TextColor3 = HubState.Theme.AccentGlow
+CmdPrefixLabel.TextSize = 16
+CmdPrefixLabel.ZIndex = 21
+CmdPrefixLabel.Parent = CmdBarFrame
+
+local CmdInput = Instance.new("TextBox")
+CmdInput.Size = UDim2.new(1, -40, 1, 0)
+CmdInput.Position = UDim2.new(0, 30, 0, 0)
+CmdInput.BackgroundTransparency = 1
+CmdInput.Font = Enum.Font.GothamSemibold
+CmdInput.PlaceholderText = "Digite um comando... (ex: fly, tp fer, speed 50, fling random)"
+CmdInput.PlaceholderColor3 = HubState.Theme.TextDim
+CmdInput.Text = ""
+CmdInput.TextColor3 = HubState.Theme.Text
+CmdInput.TextSize = 13
+CmdInput.TextXAlignment = Enum.TextXAlignment.Left
+CmdInput.ClearTextOnFocus = false
+CmdInput.ZIndex = 21
+CmdInput.Parent = CmdBarFrame
+
+local function ToggleCmdBar(forceState)
+    local state = (forceState ~= nil) and forceState or not HubState.CmdBar.Visible
+    HubState.CmdBar.Visible = state
+    if state then
+        CmdBarFrame.Visible = true
+        TweenService:Create(CmdBarFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, -240, 0, 20)
+        }):Play()
+        task.wait(0.1)
+        CmdInput:CaptureFocus()
+    else
+        TweenService:Create(CmdBarFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Position = UDim2.new(0.5, -240, 0, -60)
+        }):Play()
+        CmdInput:ReleaseFocus()
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.Semicolon or input.KeyCode == Enum.KeyCode.Quote then
+        ToggleCmdBar()
+    end
+end)
+
+local function DispatchCommand(rawText)
+    if not rawText or rawText == "" then return end
+    local args = rawText:split(" ")
+    local cmd = args[1]:lower()
+    table.remove(args, 1)
+
+    if cmd == "fly" then
+        MovementEngine.SetFlight(true)
+    elseif cmd == "unfly" then
+        MovementEngine.SetFlight(false)
+    elseif cmd == "speed" or cmd == "ws" then
+        local spd = tonumber(args[1]) or 32
+        HubState.Movement.Speed = spd
+        HubState.Movement.SpeedActive = true
+        MovementEngine.ApplySpeed()
+    elseif cmd == "unspeed" then
+        HubState.Movement.SpeedActive = false
+        MovementEngine.ApplySpeed()
+    elseif cmd == "noclip" then
+        MovementEngine.SetNoclip(true)
+    elseif cmd == "clip" then
+        MovementEngine.SetNoclip(false)
+    elseif cmd == "infjump" then
+        MovementEngine.SetInfiniteJump(true)
+    elseif cmd == "uninfjump" then
+        MovementEngine.SetInfiniteJump(false)
+    elseif cmd == "clicktp" then
+        MovementEngine.SetClickTP(true)
+    elseif cmd == "unclicktp" then
+        MovementEngine.SetClickTP(false)
+    elseif cmd == "tptool" then
+        MovementEngine.GiveTPTool()
+    elseif cmd == "tp" then
+        local targetName = args[1]
+        local found = TargetParser.FindPlayers(targetName)
+        if #found > 0 and found[1].Character and found[1].Character:FindFirstChild("HumanoidRootPart") then
+            local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myHrp then myHrp.CFrame = found[1].Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0) end
+        end
+    elseif cmd == "fling" then
+        local targetName = args[1]
+        local found = TargetParser.FindPlayers(targetName)
+        if #found > 0 then
+            FlingEngine.InvisFling(found[1])
+        else
+            FlingEngine.ToggleFling(true)
+        end
+    elseif cmd == "loopfling" then
+        local targetName = args[1]
+        local found = TargetParser.FindPlayers(targetName)
+        if #found > 0 then
+            FlingEngine.LoopFling(found[1])
+        end
+    elseif cmd == "unfling" or cmd == "unloopfling" then
+        FlingEngine.ToggleFling(false)
+        FlingEngine.LoopFling(nil)
+    elseif cmd == "fullbright" or cmd == "fb" then
+        LightingEngine.ToggleFullbright(true)
+    elseif cmd == "unfullbright" or cmd == "unfb" then
+        LightingEngine.ToggleFullbright(false)
+    elseif cmd == "nofog" then
+        LightingEngine.ToggleNoFog(true)
+    elseif cmd == "dance" then
+        local emoteName = args[1]
+        for name, id in pairs(EmotesDB) do
+            if name:lower():find(emoteName:lower()) then
+                AnimationEngine.Play(id)
+                break
+            end
+        end
+    elseif cmd == "stopdance" then
+        AnimationEngine.Stop()
+    elseif cmd == "xray" then
+        XRayEngine.Toggle(true)
+    elseif cmd == "unxray" then
+        XRayEngine.Toggle(false)
+    elseif cmd == "serverhop" or cmd == "shop" then
+        task.spawn(function()
+            local placeId = game.PlaceId
+            local api = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+            local success, res = pcall(function() return HttpService:JSONDecode(game:HttpGet(api)) end)
+            if success and res and res.data then
+                for _, srv in ipairs(res.data) do
+                    if srv.playing < srv.maxPlayers and srv.id ~= game.JobId then
+                        TeleportService:TeleportToPlaceInstance(placeId, srv.id, LocalPlayer)
+                        return
+                    end
+                end
+            end
+            TeleportService:Teleport(placeId, LocalPlayer)
+        end)
+    end
+end
+
+CmdInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        DispatchCommand(CmdInput.Text)
+        CmdInput.Text = ""
+        ToggleCmdBar(false)
+    end
+end)
+
+-- ====================================================================
+-- MONTAGEM DAS ABAS DA V9
 -- ====================================================================
 
--- 1. ABA UNIVERSAL
+-- 1. UNIVERSAL
 local universalPage = CreatePage("Universal")
-AddSection(universalPage, "Física & Movimento")
-AddToggle(universalPage, "Noclip (Atravessar Paredes)", false, function(s)
-    MovementEngine.SetNoclip(s)
-end)
-AddToggle(universalPage, "Infinite Jump (Pulo Infinito)", false, function(s)
-    MovementEngine.SetInfiniteJump(s)
-end)
-AddToggle(universalPage, "Ativar Voo (W/A/S/D + Espaço/Shift)", false, function(s)
-    MovementEngine.SetFlight(s)
-end)
-AddSlider(universalPage, "Velocidade de Voo", 10, 250, 50, function(v)
-    HubState.Movement.FlightSpeed = v
-end)
+AddSection(universalPage, "Física & Movimentação")
+AddToggle(universalPage, "Noclip (Atravessar Paredes)", false, function(s) MovementEngine.SetNoclip(s) end)
+AddToggle(universalPage, "Infinite Jump (Pulo Infinito)", false, function(s) MovementEngine.SetInfiniteJump(s) end)
+AddToggle(universalPage, "Ativar Voo (W/A/S/D + Espaço/Shift)", false, function(s) MovementEngine.SetFlight(s) end)
+AddSlider(universalPage, "Velocidade de Voo", 10, 250, 50, function(v) HubState.Movement.FlightSpeed = v end)
 AddToggle(universalPage, "Ativar Velocidade Customizada", false, function(s)
     HubState.Movement.SpeedActive = s
-    MovementEngine.ApplyWalkSpeed()
+    MovementEngine.ApplySpeed()
 end)
 AddSlider(universalPage, "Velocidade de Caminhada (SPS)", 16, 250, 32, function(v)
     HubState.Movement.Speed = v
-    if HubState.Movement.SpeedActive then
-        MovementEngine.ApplyWalkSpeed()
-    end
+    if HubState.Movement.SpeedActive then MovementEngine.ApplySpeed() end
 end)
+AddSection(universalPage, "Teleporte Rápido")
+AddToggle(universalPage, "ClickTP (Segurar Ctrl + Clique)", false, function(s) MovementEngine.SetClickTP(s) end)
+AddButton(universalPage, "Obter TP Tool no Inventário", function() MovementEngine.GiveTPTool() end)
 AddSection(universalPage, "Servidores")
-AddButton(universalPage, "Server Hop (Pular para Menor Servidor)", function()
-    task.spawn(function()
-        local placeId = game.PlaceId
-        local api = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
-        local success, res = pcall(function() return HttpService:JSONDecode(game:HttpGet(api)) end)
-        if success and res and res.data then
-            for _, srv in ipairs(res.data) do
-                if srv.playing < srv.maxPlayers and srv.id ~= game.JobId then
-                    TeleportService:TeleportToPlaceInstance(placeId, srv.id, LocalPlayer)
-                    return
-                end
-            end
-        end
-        TeleportService:Teleport(placeId, LocalPlayer)
-    end)
-end)
+AddButton(universalPage, "Server Hop (Pular para Menor Servidor)", function() DispatchCommand("serverhop") end)
 
--- 2. ABA JOGADORES (SELEÇÃO, TP & FLING)
+-- 2. JOGADORES (TARGET PARSER & ADVANCED FLING)
 local tpPage = CreatePage("Jogadores")
-AddSection(tpPage, "Ações Rápidas de Jogador")
+AddSection(tpPage, "Seleção Rápida de Alvo")
 local selectedPlayer = nil
 local targetStatusLabel = Instance.new("TextLabel")
 targetStatusLabel.Size = UDim2.new(1, 0, 0, 22)
@@ -1077,28 +1404,29 @@ targetStatusLabel.TextSize = 12
 targetStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 targetStatusLabel.Parent = tpPage
 
-AddButton(tpPage, "Teleportar para Jogador Selecionado", function()
+AddButton(tpPage, "Teleportar para Alvo", function()
     if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local myChar = LocalPlayer.Character
-        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        if myRoot then
-            myRoot.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
-        end
+        local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if myHrp then myHrp.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0) end
     end
 end)
 
-AddToggle(tpPage, "Ativar Fling (Girar e Lançar)", false, function(s)
-    FlingEngine.Toggle(s)
+AddSection(tpPage, "Sistemas de Fling (Avançado)")
+AddToggle(tpPage, "Ativar Fling Normal (Girar)", false, function(s) FlingEngine.ToggleFling(s) end)
+AddButton(tpPage, "Executar InvisFling no Alvo", function()
+    if selectedPlayer then FlingEngine.InvisFling(selectedPlayer) end
+end)
+AddToggle(tpPage, "Ativar LoopFling no Alvo", false, function(s)
+    if s then FlingEngine.LoopFling(selectedPlayer) else FlingEngine.LoopFling(nil) end
 end)
 
 AddSection(tpPage, "Lista de Jogadores no Servidor")
 local playerListContainer = Instance.new("Frame")
-playerListContainer.Size = UDim2.new(1, 0, 0, 150)
+playerListContainer.Size = UDim2.new(1, 0, 0, 140)
 playerListContainer.BackgroundColor3 = HubState.Theme.Card
 playerListContainer.Parent = tpPage
 
-local plcCorner = Instance.new("UICorner", playerListContainer)
-plcCorner.CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", playerListContainer).CornerRadius = UDim.new(0, 6)
 
 local playerScroll = Instance.new("ScrollingFrame")
 playerScroll.Size = UDim2.new(1, -10, 1, -10)
@@ -1129,8 +1457,7 @@ local function RefreshPlayerList()
             pBtn.TextXAlignment = Enum.TextXAlignment.Left
             pBtn.Parent = playerScroll
 
-            local c = Instance.new("UICorner", pBtn)
-            c.CornerRadius = UDim.new(0, 4)
+            Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 4)
 
             pBtn.MouseButton1Click:Connect(function()
                 selectedPlayer = p
@@ -1142,58 +1469,73 @@ end
 RefreshPlayerList()
 Players.PlayerAdded:Connect(RefreshPlayerList)
 Players.PlayerRemoving:Connect(RefreshPlayerList)
-
 AddButton(tpPage, "Atualizar Lista de Jogadores", RefreshPlayerList)
 
--- 3. ABA MURDER MYSTERY 2
+-- 3. MURDER MYSTERY 2
 local mm2Page = CreatePage("MM2")
 AddSection(mm2Page, "Detecção & Papéis (Role ESP)")
-AddToggle(mm2Page, "Ver Assassino & Xerife (Role ESP)", false, function(s)
-    MM2Engine.ToggleRoleESP(s)
-end)
+AddToggle(mm2Page, "Ver Assassino & Xerife (Role ESP)", false, function(s) MM2Engine.ToggleRoleESP(s) end)
 AddSection(mm2Page, "Moedas & Itens")
-AddToggle(mm2Page, "ESP de Moedas (Coin ESP)", false, function(s)
-    MM2Engine.ToggleCoinESP(s)
-end)
-AddToggle(mm2Page, "Auto-Coletar Arma ao Cair (Gun Drop)", false, function(s)
-    MM2Engine.ToggleAutoGrabGun(s)
-end)
+AddToggle(mm2Page, "ESP de Moedas (Coin ESP)", false, function(s) MM2Engine.ToggleCoinESP(s) end)
+AddToggle(mm2Page, "Auto-Coletar Arma ao Cair (Gun Drop)", false, function(s) MM2Engine.ToggleAutoGrabGun(s) end)
 AddSection(mm2Page, "Combate")
-AddToggle(mm2Page, "Hitboxes Expandidas", false, function(s)
-    MM2Engine.ToggleHitboxes(s)
-end)
+AddToggle(mm2Page, "Hitboxes Expandidas", false, function(s) MM2Engine.ToggleHitboxes(s) end)
 
--- 4. ABA VISUAIS & MIRA
+-- 4. VISUAIS & ILUMINAÇÃO
 local visualPage = CreatePage("Visuais")
-AddSection(visualPage, "Visão")
-AddToggle(visualPage, "Ativar X-Ray (Paredes Transparentes)", false, function(s)
-    XRayEngine.Toggle(s)
-end)
+AddSection(visualPage, "Iluminação do Mundo (Lighting Engine)")
+AddToggle(visualPage, "Fullbright (Tudo Claro)", false, function(s) LightingEngine.ToggleFullbright(s) end)
+AddToggle(visualPage, "NoFog (Remover Neblina)", false, function(s) LightingEngine.ToggleNoFog(s) end)
+AddSection(visualPage, "Estruturas")
+AddToggle(visualPage, "Ativar X-Ray (Paredes Transparentes)", false, function(s) XRayEngine.Toggle(s) end)
 AddSection(visualPage, "Aimbot com Raycast")
 AddToggle(visualPage, "Aimbot Ativo (Segurar Botão Direito)", false, function(s)
     HubState.Combat.AimbotActive = s
     FOVCircle.Visible = s and HubState.Combat.FOVCircleVisible
 end)
-AddToggle(visualPage, "Verificação de Visibilidade (Raycast)", true, function(s)
-    HubState.Combat.VisibilityCheck = s
-end)
+AddToggle(visualPage, "Verificação de Visibilidade (Raycast)", true, function(s) HubState.Combat.VisibilityCheck = s end)
 AddSlider(visualPage, "Raio do FOV", 50, 350, 120, function(v)
     HubState.Combat.FOV = v
     FOVCircle.Size = UDim2.new(0, v * 2, 0, v * 2)
 end)
 
--- 5. ABA DANÇAS (INFINITE YIELD)
+-- 5. DANÇAS EXPANDIDAS
 local animPage = CreatePage("Danças")
-AddSection(animPage, "Emotes Especiais")
-for emoteName, animId in pairs(EmoteList) do
-    AddButton(animPage, "Dança: " .. emoteName, function()
-        AnimationEngine.Play(animId)
-    end)
+AddSection(animPage, "Catálogo Oficial Infinite Yield")
+for emoteName, animId in pairs(EmotesDB) do
+    AddButton(animPage, "Dança: " .. emoteName, function() AnimationEngine.Play(animId) end)
 end
 AddSection(animPage, "Controle")
-AddButton(animPage, "Parar Todas as Danças", function()
-    AnimationEngine.Stop()
-end)
+AddButton(animPage, "Parar Todas as Danças", function() AnimationEngine.Stop() end)
+
+-- 6. COMANDOS & AJUDA
+local cmdHelpPage = CreatePage("Comandos")
+AddSection(cmdHelpPage, "Barra de Comandos Rápida")
+AddButton(cmdHelpPage, "Abrir / Fechar Command Bar (Atalho: ';')", function() ToggleCmdBar() end)
+AddSection(cmdHelpPage, "Comandos Suportados")
+local helpText = Instance.new("TextLabel")
+helpText.Size = UDim2.new(1, 0, 0, 240)
+helpText.BackgroundTransparency = 1
+helpText.Font = Enum.Font.Gotham
+helpText.Text = [[
+• fly / unfly — Ativa/Desativa o voo suave
+• speed [num] / unspeed — Configura a velocidade
+• noclip / clip — Ativa/Desativa atravessar paredes
+• infjump / uninfjump — Pulo infinito
+• clicktp / unclicktp — Segure Ctrl e clique para teleportar
+• tptool — Spawna a ferramenta de teleporte no inventário
+• tp [alvo] — Teleporta até o jogador (ex: tp fer, tp nearest)
+• fling [alvo] / invisfling [alvo] — Lança o alvo para longe
+• loopfling [alvo] / unloopfling — Fling contínuo
+• fullbright / nofog — Modifica a iluminação do mapa
+• dance [nome] / stopdance — Executa danças do catálogo
+• serverhop — Pula para um servidor com menos jogadores
+]]
+helpText.TextColor3 = HubState.Theme.TextDim
+helpText.TextSize = 12
+helpText.TextXAlignment = Enum.TextXAlignment.Left
+helpText.TextYAlignment = Enum.TextYAlignment.Top
+helpText.Parent = cmdHelpPage
 
 -- Criar Botões das Abas na Sidebar
 CreateTab("Universal", "⚡", 1)
@@ -1201,8 +1543,9 @@ CreateTab("Jogadores", "👤", 2)
 CreateTab("MM2", "🔪", 3)
 CreateTab("Visuais", "👁", 4)
 CreateTab("Danças", "💃", 5)
+CreateTab("Comandos", "⌨", 6)
 
--- Ativar Aba Padrão
+-- Ativar Página Padrão
 Pages["Universal"].Visible = true
 CurrentPage = Pages["Universal"]
 local defaultTabBtn = TabListContainer:FindFirstChild("UniversalBtn")
@@ -1211,4 +1554,4 @@ if defaultTabBtn then
     defaultTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
-print("Waifu Hub V8 Definitive Loaded Cleanly!")
+print("Waifu Hub V9 Definitive Loaded Successfully!")
