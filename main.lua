@@ -19,6 +19,10 @@
     ========================================================================
 ]]
 
+if not game:IsLoaded() then
+    pcall(function() game.Loaded:Wait() end)
+end
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -30,8 +34,41 @@ local Lighting = game:GetService("Lighting")
 local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
+while not LocalPlayer do
+    task.wait(0.1)
+    LocalPlayer = Players.LocalPlayer
+end
+
 local Camera = Workspace.CurrentCamera
+while not Camera do
+    task.wait(0.1)
+    Camera = Workspace.CurrentCamera
+end
 local Mouse = LocalPlayer:GetMouse()
+
+-- Safe GuiRoot Discovery (Universal Executor & Vanilla Compatibility)
+local function GetSafeGuiRoot()
+    local successHui, hui = pcall(function() return typeof(gethui) == "function" and gethui() end)
+    if successHui and hui then return hui end
+    
+    local successHui2, hui2 = pcall(function() return typeof(get_hidden_gui) == "function" and get_hidden_gui() end)
+    if successHui2 and hui2 then return hui2 end
+    
+    local successCore, core = pcall(function() return game:GetService("CoreGui") end)
+    if successCore and core then
+        local canParent = pcall(function()
+            local test = Instance.new("Folder")
+            test.Parent = core
+            test:Destroy()
+        end)
+        if canParent then return core end
+    end
+    
+    local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui", 5)
+    return pg
+end
+
+local GuiRoot = GetSafeGuiRoot() or LocalPlayer:WaitForChild("PlayerGui")
 
 -- ====================================================================
 -- CONFIGURAÇÕES GLOBAIS & ESTADO DO HUB (V10)
@@ -894,14 +931,15 @@ function AnimationEngine.DeleteCustomDance(nameOrIndex)
 end
 
 function AnimationEngine.LoadSavedDances()
-    if isfile and readfile and isfile("gohub_custom_dances.json") then
-        local success, data = pcall(function()
-            return HttpService:JSONDecode(readfile("gohub_custom_dances.json"))
-        end)
-        if success and type(data) == "table" then
-            HubState.CustomDances = data
+    pcall(function()
+        if typeof(isfile) == "function" and typeof(readfile) == "function" and isfile("gohub_custom_dances.json") then
+            local raw = readfile("gohub_custom_dances.json")
+            local data = HttpService:JSONDecode(raw)
+            if type(data) == "table" then
+                HubState.CustomDances = data
+            end
         end
-    end
+    end)
 end
 AnimationEngine.LoadSavedDances()
 
@@ -970,9 +1008,17 @@ end
 -- MURDER MYSTERY 2 SUITE (ROLES, COINS, AUTO-GUN, HITBOXES)
 -- ====================================================================
 local MM2Engine = {}
-local MM2RoleFolder = Instance.new("Folder", game:GetService("CoreGui")); MM2RoleFolder.Name = "Waifu_MM2_Roles"
-local MM2CoinFolder = Instance.new("Folder", game:GetService("CoreGui")); MM2CoinFolder.Name = "Waifu_MM2_Coins"
-local MM2HitboxFolder = Instance.new("Folder", game:GetService("CoreGui")); MM2HitboxFolder.Name = "Waifu_MM2_Hitboxes"
+local MM2RoleFolder = Instance.new("Folder")
+MM2RoleFolder.Name = "Waifu_MM2_Roles"
+pcall(function() MM2RoleFolder.Parent = GuiRoot end)
+
+local MM2CoinFolder = Instance.new("Folder")
+MM2CoinFolder.Name = "Waifu_MM2_Coins"
+pcall(function() MM2CoinFolder.Parent = GuiRoot end)
+
+local MM2HitboxFolder = Instance.new("Folder")
+MM2HitboxFolder.Name = "Waifu_MM2_Hitboxes"
+pcall(function() MM2HitboxFolder.Parent = GuiRoot end)
 
 local function DetectRole(p)
     if not p or not p.Character then return nil end
@@ -1121,18 +1167,20 @@ function CombatEngine.GetBestTarget()
 
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
-            if HubState.Combat.TeamCheck and p.Team == LocalPlayer.Team then continue end
-            local hum = p.Character:FindFirstChildOfClass("Humanoid")
-            local part = p.Character:FindFirstChild(HubState.Combat.TargetPart)
-            if hum and hum.Health > 0 and part then
-                local sPoint, onScreen = Camera:WorldToViewportPoint(part.Position)
-                if onScreen then
-                    local sPos = Vector2.new(sPoint.X, sPoint.Y)
-                    local dist = (sPos - mouseLoc).Magnitude
-                    if dist < minDist then
-                        if not HubState.Combat.VisibilityCheck or RaycastCheck(part, p.Character) then
-                            minDist = dist
-                            best = part
+            local isTeammate = HubState.Combat.TeamCheck and (p.Team == LocalPlayer.Team)
+            if not isTeammate then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                local part = p.Character:FindFirstChild(HubState.Combat.TargetPart)
+                if hum and hum.Health > 0 and part then
+                    local sPoint, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local sPos = Vector2.new(sPoint.X, sPoint.Y)
+                        local dist = (sPos - mouseLoc).Magnitude
+                        if dist < minDist then
+                            if not HubState.Combat.VisibilityCheck or RaycastCheck(part, p.Character) then
+                                minDist = dist
+                                best = part
+                            end
                         end
                     end
                 end
@@ -1157,16 +1205,25 @@ end))
 -- ====================================================================
 -- FRONT-END PREMIUM ORIGINAL INTACTO (SIDEBAR, WAIFU, SLIDERS, DRAGGABLE)
 -- ====================================================================
-local GuiRoot = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
-
-if GuiRoot:FindFirstChild("GoHub_V11_Final") then
-    GuiRoot.GoHub_V11_Final:Destroy()
+-- Limpeza segura de instâncias anteriores em todos os containers
+local oldNames = {"GoHub_V11_Final", "WaifuHub_V10_Definitive", "WaifuHub_V8_Definitive", "WaifuHub_V8", "WaifuHub"}
+for _, oldName in ipairs(oldNames) do
+    pcall(function() if GuiRoot and GuiRoot:FindFirstChild(oldName) then GuiRoot[oldName]:Destroy() end end)
+    pcall(function() if game:GetService("CoreGui"):FindFirstChild(oldName) then game:GetService("CoreGui")[oldName]:Destroy() end end)
+    pcall(function() if LocalPlayer:FindFirstChildOfClass("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild(oldName) then LocalPlayer.PlayerGui[oldName]:Destroy() end end)
 end
 
 local MainScreen = Instance.new("ScreenGui")
 MainScreen.Name = "GoHub_V11_Final"
 MainScreen.ResetOnSpawn = false
 MainScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    if syn and syn.protect_gui then
+        syn.protect_gui(MainScreen)
+    end
+end)
+
 MainScreen.Parent = GuiRoot
 
 -- FOV Circle
@@ -1202,13 +1259,27 @@ local WindowStroke = Instance.new("UIStroke", MainWindow)
 WindowStroke.Color = HubState.Theme.Border
 WindowStroke.Thickness = 1.8
 
--- Animação de Entrada
-MainWindow.Size = UDim2.new(0, 0, 0, 0)
-MainWindow.Position = UDim2.new(0.5, 0, 0.5, 0)
-TweenService:Create(MainWindow, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-    Size = UDim2.new(0, 720, 0, 450),
-    Position = UDim2.new(0.5, -360, 0.5, -225)
-}):Play()
+-- Animação de Entrada Segura
+MainWindow.Size = UDim2.new(0, 720, 0, 450)
+MainWindow.Position = UDim2.new(0.5, -360, 0.5, -225)
+MainWindow.Visible = true
+
+pcall(function()
+    MainWindow.Size = UDim2.new(0, 0, 0, 0)
+    MainWindow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    TweenService:Create(MainWindow, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 720, 0, 450),
+        Position = UDim2.new(0.5, -360, 0.5, -225)
+    }):Play()
+end)
+
+task.delay(0.5, function()
+    if not HubState.WindowMinimized and MainWindow and MainWindow.Parent then
+        MainWindow.Size = UDim2.new(0, 720, 0, 450)
+        MainWindow.Position = UDim2.new(0.5, -360, 0.5, -225)
+        MainWindow.Visible = true
+    end
+end)
 
 -- Draggable Fluido
 local isDragging, dragInput, dragStart, startPos
