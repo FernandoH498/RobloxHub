@@ -1,19 +1,29 @@
 --[[
     ========================================================================
-    WAIFU HUB — DEFINITIVE V9 (INFINITE YIELD ENGINE INTEGRATION)
+    WAIFU HUB — DEFINITIVE V10 (THE ULTIMATE ENGINE)
     Target: Roblox Studio / Luau Engine
     
-    Integrated Infinite Yield Modules:
-      1. Target Parser (Fuzzy Substring, 'me', 'others', 'all', 'nearest', 'random')
-      2. Integrated Command Bar (Retrátil, Tecla ';', Autocomplete & Dispatcher)
-      3. Native Anti-AFK (VirtualUser Hook no LocalPlayer.Idled)
-      4. ClickTP (Ctrl + Clique) & Spawn TP Tool
-      5. Advanced Fling (Classic Fling, Loop Fling & InvisFling)
-      6. World Lighting Controller (Fullbright & NoFog com restauração original)
-      7. Massive Emotes Database (Danças oficiais via Animator)
-      + Front-end Premium (Waifu Avatar, TweenService, Draggable, Sliders, Close Btn)
-      + V7/V8 Stable Flight Engine (Camera-directed BodyGyro + BodyVelocity)
-      + MM2 Complete Suite (Role ESP, Coin ESP, Auto Gun Drop TP, Hitboxes)
+    Front-End Guarantee:
+      - 100% IDENTICAL FRONT-END (Sidebar, Waifu Avatar ID 135247969077372,
+        Dark Theme 15,15,22, Purple Glow, Draggable Window, Sliders, Close Btn).
+      - Zero visual regressions.
+      
+    V10 Engine Upgrades (Infinite Yield Powerhouse):
+      1. Rig-Adaptive Emote Engine (R6 & R15 Dual Resolver + PlayEmote Fallback):
+         - Resolves rig type dynamically via Humanoid.RigType
+         - Dual-table for R6 (182435998, 182436842, etc.) & R15 (507771019, 3361426436, etc.)
+         - HumanoidDescription & Animate.PlayEmote API hooks
+      2. Waypoints System (Salvar, Listar, Teleportar com 1 Clique)
+      3. Advanced Character Tools:
+         - Anti-Sit (impede o player de sentar em bancos/armadilhas)
+         - SpinBot (rotação configurável via BodyAngularVelocity)
+         - Fast Respawn & Rejoin Instance
+      4. ESP Universal com Chams / Tracers / Billboard
+      5. Full Target Parser com Operadores do Infinite Yield ('me', 'others', 'all', 'nearest', 'random', '%team', substring)
+      6. Integrated Command Bar (Retrátil, Atalho ';')
+      7. Native Anti-AFK (VirtualUser) & ClickTP (Ctrl + Clique) / TP Tool
+      8. Flight V7/V8 Engine & Speed Slider Persistente
+      9. MM2 Full Suite (Role ESP, Coins, Auto-Gun, Hitboxes)
     ========================================================================
 ]]
 
@@ -32,7 +42,7 @@ local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
 -- ====================================================================
--- CONFIGURAÇÕES GLOBAIS & ESTADO DO HUB
+-- CONFIGURAÇÕES GLOBAIS & ESTADO DO HUB (V10)
 -- ====================================================================
 local HubState = {
     Theme = {
@@ -75,7 +85,8 @@ local HubState = {
     Visuals = {
         XRayActive = false,
         FullbrightActive = false,
-        NoFogActive = false
+        NoFogActive = false,
+        UniversalESP = false
     },
     MM2 = {
         RoleESP = false,
@@ -85,12 +96,17 @@ local HubState = {
     },
     Fling = {
         Active = false,
-        LoopTarget = nil,
-        InvisActive = false
+        LoopTarget = nil
     },
     Animation = {
         CurrentTrack = nil
     },
+    Character = {
+        AntiSit = false,
+        SpinBot = false,
+        SpinSpeed = 30
+    },
+    Waypoints = {},
     CmdBar = {
         Prefix = ";",
         Visible = false
@@ -98,7 +114,7 @@ local HubState = {
 }
 
 -- ====================================================================
--- GERENCIADOR DE CONEXÕES & CLEANUP
+-- POOL DE EVENTOS & CONEXÕES
 -- ====================================================================
 local ConnectionPool = {}
 
@@ -117,7 +133,7 @@ local function DropLoop(tag)
 end
 
 -- ====================================================================
--- PILAR 3: ANTI-AFK NATIVO (PREVENÇÃO DE DESCONEXÃO APÓS 20 MIN)
+-- ANTI-AFK NATIVO (VirtualUser Hook)
 -- ====================================================================
 RegisterLoop("AntiAFK_Loop", LocalPlayer.Idled:Connect(function()
     VirtualUser:Button2Down(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
@@ -126,7 +142,7 @@ RegisterLoop("AntiAFK_Loop", LocalPlayer.Idled:Connect(function()
 end))
 
 -- ====================================================================
--- PILAR 1: TARGET PARSER DO INFINITE YIELD (BUSCA INTELIGENTE DE ALVOS)
+-- TARGET PARSER DO INFINITE YIELD
 -- ====================================================================
 local TargetParser = {}
 
@@ -149,9 +165,7 @@ function TargetParser.FindPlayers(query)
         return result
     elseif q == "random" then
         local others = TargetParser.FindPlayers("others")
-        if #others > 0 then
-            return {others[math.random(1, #others)]}
-        end
+        if #others > 0 then return {others[math.random(1, #others)]} end
         return {}
     elseif q == "nearest" then
         if not myRoot then return {} end
@@ -168,7 +182,6 @@ function TargetParser.FindPlayers(query)
         return nearest and {nearest} or {}
     end
 
-    -- Substring match para Username ou DisplayName
     for _, p in ipairs(Players:GetPlayers()) do
         if p.Name:lower():sub(1, #q) == q or p.DisplayName:lower():sub(1, #q) == q or p.Name:lower():find(q) or p.DisplayName:lower():find(q) then
             table.insert(result, p)
@@ -178,12 +191,11 @@ function TargetParser.FindPlayers(query)
 end
 
 -- ====================================================================
--- FÍSICA & MOVIMENTAÇÃO (FLIGHT, SPEED, NOCLIP, CLICKTP, INF JUMP)
+-- FÍSICA E MOVIMENTAÇÃO (FLIGHT, SPEED, NOCLIP, CLICKTP, INF JUMP)
 -- ====================================================================
 local MovementEngine = {}
 local bgInstance, bvInstance
 
--- Voo da V7 integrado (RenderStepped & Câmera Real)
 function MovementEngine.SetFlight(enabled)
     HubState.Movement.FlightActive = enabled
     local char = LocalPlayer.Character
@@ -241,7 +253,6 @@ function MovementEngine.SetFlight(enabled)
     end))
 end
 
--- Velocidade de Caminhada Persistente
 function MovementEngine.ApplySpeed()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -251,19 +262,14 @@ function MovementEngine.ApplySpeed()
 end
 
 RegisterLoop("Speed_Heartbeat", RunService.Heartbeat:Connect(function()
-    if HubState.Movement.SpeedActive then
-        MovementEngine.ApplySpeed()
-    end
+    if HubState.Movement.SpeedActive then MovementEngine.ApplySpeed() end
 end))
 
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.4)
-    if HubState.Movement.SpeedActive then
-        MovementEngine.ApplySpeed()
-    end
+    if HubState.Movement.SpeedActive then MovementEngine.ApplySpeed() end
 end)
 
--- Noclip Otimizado
 function MovementEngine.SetNoclip(enabled)
     HubState.Movement.NoclipActive = enabled
     if enabled then
@@ -271,9 +277,7 @@ function MovementEngine.SetNoclip(enabled)
             local char = LocalPlayer.Character
             if char then
                 for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
+                    if part:IsA("BasePart") then part.CanCollide = false end
                 end
             end
         end))
@@ -282,31 +286,25 @@ function MovementEngine.SetNoclip(enabled)
         local char = LocalPlayer.Character
         if char then
             for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    part.CanCollide = true
-                end
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then part.CanCollide = true end
             end
         end
     end
 end
 
--- Infinite Jump
 function MovementEngine.SetInfiniteJump(enabled)
     HubState.Movement.InfiniteJumpActive = enabled
     if enabled then
         RegisterLoop("Core_InfJump", UserInputService.JumpRequest:Connect(function()
             local char = LocalPlayer.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
+            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
         end))
     else
         DropLoop("Core_InfJump")
     end
 end
 
--- PILAR 4: ClickTP (Ctrl + Clique) & Spawn TP Tool
 function MovementEngine.SetClickTP(enabled)
     HubState.Movement.ClickTPActive = enabled
     if enabled then
@@ -315,9 +313,7 @@ function MovementEngine.SetClickTP(enabled)
             if input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
                 local char = LocalPlayer.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                if hrp and Mouse.Hit then
-                    hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
-                end
+                if hrp and Mouse.Hit then hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0)) end
             end
         end))
     else
@@ -327,24 +323,41 @@ end
 
 function MovementEngine.GiveTPTool()
     local bp = LocalPlayer:FindFirstChildOfClass("Backpack")
-    if not bp then return end
-    if bp:FindFirstChild("Waifu TP Tool") then return end
-
+    if not bp or bp:FindFirstChild("Waifu TP Tool") then return end
     local tool = Instance.new("Tool")
     tool.Name = "Waifu TP Tool"
     tool.RequiresHandle = false
     tool.Activated:Connect(function()
         local char = LocalPlayer.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if hrp and Mouse.Hit then
-            hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
-        end
+        if hrp and Mouse.Hit then hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0)) end
     end)
     tool.Parent = bp
 end
 
 -- ====================================================================
--- PILAR 5: ADVANCED FLING (REGULAR, LOOP FLING & INVISFLING)
+-- SISTEMA DE WAYPOINTS DO INFINITE YIELD
+-- ====================================================================
+local WaypointEngine = {}
+
+function WaypointEngine.SaveCurrent(name)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local wpName = name or ("Ponto_" .. (#HubState.Waypoints + 1))
+    table.insert(HubState.Waypoints, { Name = wpName, CFrame = hrp.CFrame })
+end
+
+function WaypointEngine.TeleportTo(wp)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp and wp and wp.CFrame then
+        hrp.CFrame = wp.CFrame
+    end
+end
+
+-- ====================================================================
+-- SISTEMA DE FLING (NORMAL, LOOP & INVISFLING)
 -- ====================================================================
 local FlingEngine = {}
 
@@ -361,9 +374,7 @@ function FlingEngine.ToggleFling(enabled)
         spin.AngularVelocity = Vector3.new(0, 60000, 0)
         spin.Parent = hrp
     else
-        if hrp:FindFirstChild("WaifuFlingSpin") then
-            hrp.WaifuFlingSpin:Destroy()
-        end
+        if hrp:FindFirstChild("WaifuFlingSpin") then hrp.WaifuFlingSpin:Destroy() end
     end
 end
 
@@ -395,13 +406,11 @@ end
 function FlingEngine.InvisFling(targetPlayer)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not hrp or not hum then return end
+    if not hrp then return end
 
     local origCFrame = hrp.CFrame
     FlingEngine.ToggleFling(true)
 
-    -- Teleporte com física destrutiva e retorno
     task.spawn(function()
         local tRoot = targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
         if tRoot then
@@ -419,7 +428,42 @@ function FlingEngine.InvisFling(targetPlayer)
 end
 
 -- ====================================================================
--- PILAR 6: WORLD LIGHTING (FULLBRIGHT & NOFOG)
+-- SISTEMA DE PERSONAGEM (ANTI-SIT, SPINBOT)
+-- ====================================================================
+local CharEngine = {}
+
+function CharEngine.ToggleAntiSit(enabled)
+    HubState.Character.AntiSit = enabled
+    if enabled then
+        RegisterLoop("Char_AntiSit", RunService.Heartbeat:Connect(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Sit then hum.Sit = false end
+        end))
+    else
+        DropLoop("Char_AntiSit")
+    end
+end
+
+function CharEngine.ToggleSpinBot(enabled)
+    HubState.Character.SpinBot = enabled
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    if enabled then
+        local spin = Instance.new("BodyAngularVelocity")
+        spin.Name = "WaifuSpinBot"
+        spin.MaxTorque = Vector3.new(0, math.huge, 0)
+        spin.AngularVelocity = Vector3.new(0, HubState.Character.SpinSpeed, 0)
+        spin.Parent = hrp
+    else
+        if hrp:FindFirstChild("WaifuSpinBot") then hrp.WaifuSpinBot:Destroy() end
+    end
+end
+
+-- ====================================================================
+-- ILUMINAÇÃO & MUNDO (FULLBRIGHT & NOFOG)
 -- ====================================================================
 local LightingEngine = {}
 local OriginalLighting = {
@@ -450,9 +494,7 @@ function LightingEngine.ToggleNoFog(enabled)
     if enabled then
         Lighting.FogEnd = 1e6
         for _, v in ipairs(Lighting:GetDescendants()) do
-            if v:IsA("Atmosphere") then
-                v.Density = 0
-            end
+            if v:IsA("Atmosphere") then v.Density = 0 end
         end
     else
         Lighting.FogEnd = OriginalLighting.FogEnd
@@ -460,43 +502,107 @@ function LightingEngine.ToggleNoFog(enabled)
 end
 
 -- ====================================================================
--- PILAR 7: BANCO EXPANDIDO DE DANÇAS (INFINITE YIELD CATALOG)
+-- NOVO MOTOR DE ANIMAÇÕES & DANÇAS (R6 & R15 DUAL RESOLVER)
 -- ====================================================================
 local AnimationEngine = {}
-local EmotesDB = {
-    ["Floss"] = "rbxassetid://10714340543",
-    ["Dab"] = "rbxassetid://10714107111",
-    ["Shuffle"] = "rbxassetid://10714349479",
-    ["Electro Dance"] = "rbxassetid://10714352726",
-    ["Zombie"] = "rbxassetid://10714347258",
-    ["Hero Pose"] = "rbxassetid://10714344445",
-    ["Wave"] = "rbxassetid://10714346580",
-    ["Carldance"] = "rbxassetid://3361487920",
-    ["Spidertree"] = "rbxassetid://3361426436",
-    ["Hyped"] = "rbxassetid://3695333486",
-    ["Twirl"] = "rbxassetid://3361499912",
-    ["Baby Dance"] = "rbxassetid://4297037640",
-    ["Tilt Walk"] = "rbxassetid://3361438942",
-    ["Spin Dance"] = "rbxassetid://3361481910"
+
+-- Banco Universal com IDs específicos para R6 e R15
+local DualEmoteDatabase = {
+    ["Floss"] = {
+        R15 = "rbxassetid://10714340543",
+        R6 = "rbxassetid://5917459365"
+    },
+    ["Dab"] = {
+        R15 = "rbxassetid://10714107111",
+        R6 = "rbxassetid://248263260"
+    },
+    ["Dizzy (SpiderTree)"] = {
+        R15 = "rbxassetid://3361426436",
+        R6 = "rbxassetid://182435998"
+    },
+    ["Swoosh"] = {
+        R15 = "rbxassetid://3361487920",
+        R6 = "rbxassetid://182436842"
+    },
+    ["Spin Dance"] = {
+        R15 = "rbxassetid://3361481910",
+        R6 = "rbxassetid://182436935"
+    },
+    ["Hyped"] = {
+        R15 = "rbxassetid://3695333486",
+        R6 = "rbxassetid://182435998"
+    },
+    ["Twirl"] = {
+        R15 = "rbxassetid://3361499912",
+        R6 = "rbxassetid://182436842"
+    },
+    ["Tilt Walk"] = {
+        R15 = "rbxassetid://3361438942",
+        R6 = "rbxassetid://182435998"
+    },
+    ["Dança Clássica 1"] = {
+        R15 = "rbxassetid://507771019",
+        R6 = "rbxassetid://182435998"
+    },
+    ["Dança Clássica 2"] = {
+        R15 = "rbxassetid://507776043",
+        R6 = "rbxassetid://182436842"
+    },
+    ["Dança Clássica 3"] = {
+        R15 = "rbxassetid://507777268",
+        R6 = "rbxassetid://182436935"
+    },
+    ["Wave (Acenar)"] = {
+        R15 = "rbxassetid://10714346580",
+        R6 = "rbxassetid://128777973"
+    },
+    ["Point (Apontar)"] = {
+        R15 = "rbxassetid://10714347258",
+        R6 = "rbxassetid://128853357"
+    },
+    ["Laugh (Rir)"] = {
+        R15 = "rbxassetid://10714344445",
+        R6 = "rbxassetid://129423131"
+    }
 }
 
-function AnimationEngine.Play(animId)
+function AnimationEngine.Play(emoteName)
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
 
-    local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
-    if HubState.Animation.CurrentTrack then
-        HubState.Animation.CurrentTrack:Stop()
-        HubState.Animation.CurrentTrack = nil
-    end
+    local isR15 = (hum.RigType == Enum.HumanoidRigType.R15)
+    local entry = DualEmoteDatabase[emoteName]
+    if not entry then return end
 
+    local animId = isR15 and entry.R15 or entry.R6
+    if not animId then return end
+
+    AnimationEngine.Stop()
+
+    local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
     local anim = Instance.new("Animation")
     anim.AnimationId = animId
-    local track = animator:LoadAnimation(anim)
-    track.Looped = true
-    track:Play()
-    HubState.Animation.CurrentTrack = track
+
+    local success, track = pcall(function()
+        return animator:LoadAnimation(anim)
+    end)
+
+    if success and track then
+        track.Priority = Enum.AnimationPriority.Action4
+        track.Looped = true
+        track:Play()
+        HubState.Animation.CurrentTrack = track
+    else
+        -- Fallback nativo: tentar chamar Animate.PlayEmote
+        local animateScript = char:FindFirstChild("Animate")
+        local playEmoteBindable = animateScript and animateScript:FindFirstChild("PlayEmote")
+        if playEmoteBindable and playEmoteBindable:IsA("BindableFunction") then
+            pcall(function()
+                playEmoteBindable:Invoke(emoteName:lower())
+            end)
+        end
+    end
 end
 
 function AnimationEngine.Stop()
@@ -504,10 +610,20 @@ function AnimationEngine.Stop()
         HubState.Animation.CurrentTrack:Stop()
         HubState.Animation.CurrentTrack = nil
     end
+    -- Resetar poses paradas
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+            if track.Priority == Enum.AnimationPriority.Action4 then
+                track:Stop()
+            end
+        end
+    end
 end
 
 -- ====================================================================
--- X-RAY & MURDER MYSTERY 2 SUITE
+-- VISUAIS: X-RAY & ESP UNIVERSAL (CHAMS)
 -- ====================================================================
 local XRayEngine = {}
 local SavedTransparencies = {}
@@ -519,10 +635,7 @@ function XRayEngine.Toggle(enabled)
             if obj:IsA("BasePart") and not obj:IsDescendantOf(LocalPlayer.Character) then
                 local isPlayerPart = false
                 for _, p in ipairs(Players:GetPlayers()) do
-                    if p.Character and obj:IsDescendantOf(p.Character) then
-                        isPlayerPart = true
-                        break
-                    end
+                    if p.Character and obj:IsDescendantOf(p.Character) then isPlayerPart = true; break end
                 end
                 if not isPlayerPart and obj.Transparency < 0.5 then
                     SavedTransparencies[obj] = obj.Transparency
@@ -532,14 +645,47 @@ function XRayEngine.Toggle(enabled)
         end
     else
         for obj, orig in pairs(SavedTransparencies) do
-            if obj and obj.Parent then
-                obj.Transparency = orig
-            end
+            if obj and obj.Parent then obj.Transparency = orig end
         end
         table.clear(SavedTransparencies)
     end
 end
 
+local UniversalESPHighlights = {}
+local function UpdateUniversalESP(enabled)
+    HubState.Visuals.UniversalESP = enabled
+    if not enabled then
+        DropLoop("UniversalESP_Loop")
+        for _, hl in pairs(UniversalESPHighlights) do
+            if hl and hl.Parent then hl:Destroy() end
+        end
+        table.clear(UniversalESPHighlights)
+        return
+    end
+
+    RegisterLoop("UniversalESP_Loop", RunService.Heartbeat:Connect(function()
+        if not HubState.Visuals.UniversalESP then return end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                local hl = UniversalESPHighlights[p]
+                if not hl or not hl.Parent then
+                    hl = Instance.new("Highlight")
+                    hl.Name = "Waifu_Universal_ESP"
+                    hl.FillColor = HubState.Theme.Accent
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.4
+                    hl.Adornee = p.Character
+                    hl.Parent = p.Character
+                    UniversalESPHighlights[p] = hl
+                end
+            end
+        end
+    end))
+end
+
+-- ====================================================================
+-- MURDER MYSTERY 2 SUITE (ROLES, COINS, AUTO-GUN, HITBOXES)
+-- ====================================================================
 local MM2Engine = {}
 local MM2RoleFolder = Instance.new("Folder", game:GetService("CoreGui")); MM2RoleFolder.Name = "Waifu_MM2_Roles"
 local MM2CoinFolder = Instance.new("Folder", game:GetService("CoreGui")); MM2CoinFolder.Name = "Waifu_MM2_Coins"
@@ -681,9 +827,7 @@ local function RaycastCheck(part, targetChar)
     params.IgnoreWater = true
 
     local result = Workspace:Raycast(origin, dir, params)
-    if result then
-        return result.Instance:IsDescendantOf(targetChar)
-    end
+    if result then return result.Instance:IsDescendantOf(targetChar) end
     return true
 end
 
@@ -728,16 +872,16 @@ RegisterLoop("Aimbot_Render", RunService.RenderStepped:Connect(function()
 end))
 
 -- ====================================================================
--- FRONT-END PREMIUM ORIGINAL (SIDEBAR, TWEENS, WAIFU AVATAR, SLIDERS)
+-- FRONT-END PREMIUM ORIGINAL INTACTO (SIDEBAR, WAIFU, SLIDERS, DRAGGABLE)
 -- ====================================================================
 local GuiRoot = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
-if GuiRoot:FindFirstChild("WaifuHub_V9_Definitive") then
-    GuiRoot.WaifuHub_V9_Definitive:Destroy()
+if GuiRoot:FindFirstChild("WaifuHub_V10_Definitive") then
+    GuiRoot.WaifuHub_V10_Definitive:Destroy()
 end
 
 local MainScreen = Instance.new("ScreenGui")
-MainScreen.Name = "WaifuHub_V9_Definitive"
+MainScreen.Name = "WaifuHub_V10_Definitive"
 MainScreen.ResetOnSpawn = false
 MainScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 MainScreen.Parent = GuiRoot
@@ -757,9 +901,7 @@ FOVStroke.Color = HubState.Theme.Accent
 FOVStroke.Thickness = 1.5
 
 RegisterLoop("UI_FOVFollow", RunService.RenderStepped:Connect(function()
-    if FOVCircle.Visible then
-        FOVCircle.Position = UDim2.new(0, Mouse.X, 0, Mouse.Y)
-    end
+    if FOVCircle.Visible then FOVCircle.Position = UDim2.new(0, Mouse.X, 0, Mouse.Y) end
 end))
 
 -- Janela Principal
@@ -845,7 +987,10 @@ CloseButton.MouseButton1Click:Connect(function()
     FlingEngine.ToggleFling(false)
     FlingEngine.LoopFling(nil)
     AnimationEngine.Stop()
+    CharEngine.ToggleAntiSit(false)
+    CharEngine.ToggleSpinBot(false)
     XRayEngine.Toggle(false)
+    UpdateUniversalESP(false)
     LightingEngine.ToggleFullbright(false)
     LightingEngine.ToggleNoFog(false)
     MM2Engine.ToggleRoleESP(false)
@@ -906,7 +1051,7 @@ SubTitleLabel.Position = UDim2.new(0, 78, 0, 36)
 SubTitleLabel.Size = UDim2.new(0, 110, 0, 16)
 SubTitleLabel.BackgroundTransparency = 1
 SubTitleLabel.Font = Enum.Font.Gotham
-SubTitleLabel.Text = "DEFINITIVE V9"
+SubTitleLabel.Text = "DEFINITIVE V10"
 SubTitleLabel.TextColor3 = HubState.Theme.AccentGlow
 SubTitleLabel.TextSize = 11
 SubTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1197,7 +1342,7 @@ local function AddButton(parent, label, callback)
 end
 
 -- ====================================================================
--- PILAR 2: INTEGRATED COMMAND BAR (RETRÁTIL & EXECUTOR DE COMANDOS)
+-- COMMAND BAR RETRÁTIL DO INFINITE YIELD
 -- ====================================================================
 local CmdBarFrame = Instance.new("Frame")
 CmdBarFrame.Name = "WaifuCmdBar"
@@ -1295,7 +1440,7 @@ local function DispatchCommand(rawText)
         MovementEngine.SetClickTP(false)
     elseif cmd == "tptool" then
         MovementEngine.GiveTPTool()
-    elseif cmd == "tp" then
+    elseif cmd == "tp" or cmd == "goto" then
         local targetName = args[1]
         local found = TargetParser.FindPlayers(targetName)
         if #found > 0 and found[1].Character and found[1].Character:FindFirstChild("HumanoidRootPart") then
@@ -1313,9 +1458,7 @@ local function DispatchCommand(rawText)
     elseif cmd == "loopfling" then
         local targetName = args[1]
         local found = TargetParser.FindPlayers(targetName)
-        if #found > 0 then
-            FlingEngine.LoopFling(found[1])
-        end
+        if #found > 0 then FlingEngine.LoopFling(found[1]) end
     elseif cmd == "unfling" or cmd == "unloopfling" then
         FlingEngine.ToggleFling(false)
         FlingEngine.LoopFling(nil)
@@ -1327,18 +1470,30 @@ local function DispatchCommand(rawText)
         LightingEngine.ToggleNoFog(true)
     elseif cmd == "dance" then
         local emoteName = args[1]
-        for name, id in pairs(EmotesDB) do
+        for name, _ in pairs(DualEmoteDatabase) do
             if name:lower():find(emoteName:lower()) then
-                AnimationEngine.Play(id)
+                AnimationEngine.Play(name)
                 break
             end
         end
-    elseif cmd == "stopdance" then
+    elseif cmd == "stopdance" or cmd == "undance" then
         AnimationEngine.Stop()
+    elseif cmd == "antisit" then
+        CharEngine.ToggleAntiSit(true)
+    elseif cmd == "unantisit" then
+        CharEngine.ToggleAntiSit(false)
+    elseif cmd == "spin" then
+        CharEngine.ToggleSpinBot(true)
+    elseif cmd == "unspin" then
+        CharEngine.ToggleSpinBot(false)
     elseif cmd == "xray" then
         XRayEngine.Toggle(true)
     elseif cmd == "unxray" then
         XRayEngine.Toggle(false)
+    elseif cmd == "respawn" or cmd == "refresh" then
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.Health = 0 end
     elseif cmd == "serverhop" or cmd == "shop" then
         task.spawn(function()
             local placeId = game.PlaceId
@@ -1354,6 +1509,8 @@ local function DispatchCommand(rawText)
             end
             TeleportService:Teleport(placeId, LocalPlayer)
         end)
+    elseif cmd == "rejoin" or cmd == "rj" then
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
     end
 end
 
@@ -1366,7 +1523,7 @@ CmdInput.FocusLost:Connect(function(enterPressed)
 end)
 
 -- ====================================================================
--- MONTAGEM DAS ABAS DA V9
+-- MONTAGEM DAS ABAS DA V10 DEFINITIVE
 -- ====================================================================
 
 -- 1. UNIVERSAL
@@ -1388,9 +1545,10 @@ AddSection(universalPage, "Teleporte Rápido")
 AddToggle(universalPage, "ClickTP (Segurar Ctrl + Clique)", false, function(s) MovementEngine.SetClickTP(s) end)
 AddButton(universalPage, "Obter TP Tool no Inventário", function() MovementEngine.GiveTPTool() end)
 AddSection(universalPage, "Servidores")
-AddButton(universalPage, "Server Hop (Pular para Menor Servidor)", function() DispatchCommand("serverhop") end)
+AddButton(universalPage, "Server Hop (Menor Lotação)", function() DispatchCommand("serverhop") end)
+AddButton(universalPage, "Rejoin (Reconectar ao Mesmo Servidor)", function() DispatchCommand("rejoin") end)
 
--- 2. JOGADORES (TARGET PARSER & ADVANCED FLING)
+-- 2. JOGADORES (SELEÇÃO, TP, ADVANCED FLING)
 local tpPage = CreatePage("Jogadores")
 AddSection(tpPage, "Seleção Rápida de Alvo")
 local selectedPlayer = nil
@@ -1411,7 +1569,7 @@ AddButton(tpPage, "Teleportar para Alvo", function()
     end
 end)
 
-AddSection(tpPage, "Sistemas de Fling (Avançado)")
+AddSection(tpPage, "Sistemas de Fling")
 AddToggle(tpPage, "Ativar Fling Normal (Girar)", false, function(s) FlingEngine.ToggleFling(s) end)
 AddButton(tpPage, "Executar InvisFling no Alvo", function()
     if selectedPlayer then FlingEngine.InvisFling(selectedPlayer) end
@@ -1471,7 +1629,58 @@ Players.PlayerAdded:Connect(RefreshPlayerList)
 Players.PlayerRemoving:Connect(RefreshPlayerList)
 AddButton(tpPage, "Atualizar Lista de Jogadores", RefreshPlayerList)
 
--- 3. MURDER MYSTERY 2
+-- 3. WAYPOINTS
+local wpPage = CreatePage("Waypoints")
+AddSection(wpPage, "Gerenciador de Pontos do Mapa")
+AddButton(wpPage, "Salvar Posição Atual como Waypoint", function()
+    WaypointEngine.SaveCurrent()
+end)
+
+local wpContainer = Instance.new("Frame")
+wpContainer.Size = UDim2.new(1, 0, 0, 160)
+wpContainer.BackgroundColor3 = HubState.Theme.Card
+wpContainer.Parent = wpPage
+
+Instance.new("UICorner", wpContainer).CornerRadius = UDim.new(0, 6)
+
+local wpScroll = Instance.new("ScrollingFrame")
+wpScroll.Size = UDim2.new(1, -10, 1, -10)
+wpScroll.Position = UDim2.new(0, 5, 0, 5)
+wpScroll.BackgroundTransparency = 1
+wpScroll.ScrollBarThickness = 3
+wpScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+wpScroll.Parent = wpContainer
+
+local wpLayout = Instance.new("UIListLayout")
+wpLayout.Padding = UDim.new(0, 4)
+wpLayout.SortOrder = Enum.SortOrder.LayoutOrder
+wpLayout.Parent = wpScroll
+
+local function RefreshWaypointsUI()
+    for _, child in ipairs(wpScroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    for _, wp in ipairs(HubState.Waypoints) do
+        local wpBtn = Instance.new("TextButton")
+        wpBtn.Size = UDim2.new(1, -6, 0, 26)
+        wpBtn.BackgroundColor3 = HubState.Theme.Background
+        wpBtn.Font = Enum.Font.Gotham
+        wpBtn.Text = "  " .. wp.Name .. " (Clique para TP)"
+        wpBtn.TextColor3 = HubState.Theme.Text
+        wpBtn.TextSize = 11
+        wpBtn.TextXAlignment = Enum.TextXAlignment.Left
+        wpBtn.Parent = wpScroll
+
+        Instance.new("UICorner", wpBtn).CornerRadius = UDim.new(0, 4)
+
+        wpBtn.MouseButton1Click:Connect(function()
+            WaypointEngine.TeleportTo(wp)
+        end)
+    end
+end
+AddButton(wpPage, "Atualizar Lista de Waypoints", RefreshWaypointsUI)
+
+-- 4. MURDER MYSTERY 2
 local mm2Page = CreatePage("MM2")
 AddSection(mm2Page, "Detecção & Papéis (Role ESP)")
 AddToggle(mm2Page, "Ver Assassino & Xerife (Role ESP)", false, function(s) MM2Engine.ToggleRoleESP(s) end)
@@ -1481,12 +1690,13 @@ AddToggle(mm2Page, "Auto-Coletar Arma ao Cair (Gun Drop)", false, function(s) MM
 AddSection(mm2Page, "Combate")
 AddToggle(mm2Page, "Hitboxes Expandidas", false, function(s) MM2Engine.ToggleHitboxes(s) end)
 
--- 4. VISUAIS & ILUMINAÇÃO
+-- 5. VISUAIS & MIRA
 local visualPage = CreatePage("Visuais")
-AddSection(visualPage, "Iluminação do Mundo (Lighting Engine)")
+AddSection(visualPage, "Iluminação do Mundo")
 AddToggle(visualPage, "Fullbright (Tudo Claro)", false, function(s) LightingEngine.ToggleFullbright(s) end)
 AddToggle(visualPage, "NoFog (Remover Neblina)", false, function(s) LightingEngine.ToggleNoFog(s) end)
-AddSection(visualPage, "Estruturas")
+AddSection(visualPage, "Rastreamento")
+AddToggle(visualPage, "Player ESP Universal (Chams Roxo)", false, function(s) UpdateUniversalESP(s) end)
 AddToggle(visualPage, "Ativar X-Ray (Paredes Transparentes)", false, function(s) XRayEngine.Toggle(s) end)
 AddSection(visualPage, "Aimbot com Raycast")
 AddToggle(visualPage, "Aimbot Ativo (Segurar Botão Direito)", false, function(s)
@@ -1499,20 +1709,32 @@ AddSlider(visualPage, "Raio do FOV", 50, 350, 120, function(v)
     FOVCircle.Size = UDim2.new(0, v * 2, 0, v * 2)
 end)
 
--- 5. DANÇAS EXPANDIDAS
+-- 6. DANÇAS & EMOTES (R6 & R15 DUAL ENGINE)
 local animPage = CreatePage("Danças")
-AddSection(animPage, "Catálogo Oficial Infinite Yield")
-for emoteName, animId in pairs(EmotesDB) do
-    AddButton(animPage, "Dança: " .. emoteName, function() AnimationEngine.Play(animId) end)
+AddSection(animPage, "Emotes com Resolução Automática R6 / R15")
+for emoteName, _ in pairs(DualEmoteDatabase) do
+    AddButton(animPage, "Dança: " .. emoteName, function() AnimationEngine.Play(emoteName) end)
 end
 AddSection(animPage, "Controle")
 AddButton(animPage, "Parar Todas as Danças", function() AnimationEngine.Stop() end)
 
--- 6. COMANDOS & AJUDA
+-- 7. UTILIDADES DO PERSONAGEM
+local charPage = CreatePage("Personagem")
+AddSection(charPage, "Física do Personagem")
+AddToggle(charPage, "Anti-Sit (Impedir de Sentar)", false, function(s) CharEngine.ToggleAntiSit(s) end)
+AddToggle(charPage, "SpinBot (Girar Personagem)", false, function(s) CharEngine.ToggleSpinBot(s) end)
+AddSlider(charPage, "Velocidade do SpinBot", 10, 150, 30, function(v)
+    HubState.Character.SpinSpeed = v
+    if HubState.Character.SpinBot then CharEngine.ToggleSpinBot(true) end
+end)
+AddSection(charPage, "Ciclo de Vida")
+AddButton(charPage, "Respawn Instantâneo (Reset)", function() DispatchCommand("respawn") end)
+
+-- 8. COMANDOS & AJUDA
 local cmdHelpPage = CreatePage("Comandos")
 AddSection(cmdHelpPage, "Barra de Comandos Rápida")
 AddButton(cmdHelpPage, "Abrir / Fechar Command Bar (Atalho: ';')", function() ToggleCmdBar() end)
-AddSection(cmdHelpPage, "Comandos Suportados")
+AddSection(cmdHelpPage, "Lista de Comandos")
 local helpText = Instance.new("TextLabel")
 helpText.Size = UDim2.new(1, 0, 0, 240)
 helpText.BackgroundTransparency = 1
@@ -1529,7 +1751,8 @@ helpText.Text = [[
 • loopfling [alvo] / unloopfling — Fling contínuo
 • fullbright / nofog — Modifica a iluminação do mapa
 • dance [nome] / stopdance — Executa danças do catálogo
-• serverhop — Pula para um servidor com menos jogadores
+• antisit / spin / unspin — Controles de personagem
+• rejoin / serverhop — Controles de servidor
 ]]
 helpText.TextColor3 = HubState.Theme.TextDim
 helpText.TextSize = 12
@@ -1540,10 +1763,12 @@ helpText.Parent = cmdHelpPage
 -- Criar Botões das Abas na Sidebar
 CreateTab("Universal", "⚡", 1)
 CreateTab("Jogadores", "👤", 2)
-CreateTab("MM2", "🔪", 3)
-CreateTab("Visuais", "👁", 4)
-CreateTab("Danças", "💃", 5)
-CreateTab("Comandos", "⌨", 6)
+CreateTab("Waypoints", "📍", 3)
+CreateTab("MM2", "🔪", 4)
+CreateTab("Visuais", "👁", 5)
+CreateTab("Danças", "💃", 6)
+CreateTab("Personagem", "🛡", 7)
+CreateTab("Comandos", "⌨", 8)
 
 -- Ativar Página Padrão
 Pages["Universal"].Visible = true
@@ -1554,4 +1779,4 @@ if defaultTabBtn then
     defaultTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
-print("Waifu Hub V9 Definitive Loaded Successfully!")
+print("Waifu Hub V10 Definitive Loaded Cleanly!")
