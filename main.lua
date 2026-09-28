@@ -96,6 +96,8 @@ local HubState = {
         CurrentTrack = nil,
         Speed = 1
     },
+    CustomDances = {},
+    WindowMinimized = false,
     Character = {
         AntiSit = false,
         SpinBot = false,
@@ -815,6 +817,14 @@ function AnimationEngine.Play(emoteName)
             end
         end
     end
+    if not entry then
+        for _, custom in ipairs(HubState.CustomDances) do
+            if custom.Name:lower():find(emoteName:lower(), 1, true) then
+                AnimationEngine.PlayRaw(custom.ID, custom.Name)
+                return
+            end
+        end
+    end
     if not entry then return end
 
     local targetId = isR15 and entry.R15 or entry.R6
@@ -828,6 +838,72 @@ function AnimationEngine.Play(emoteName)
         AnimationEngine.PlayRaw(targetId, emoteName)
     end
 end
+
+function AnimationEngine.SaveCustomDance(name, rawId)
+    if not name or name:gsub("%s+", "") == "" then return false, "Nome inválido" end
+    if not rawId or rawId:gsub("%s+", "") == "" then return false, "ID inválido" end
+
+    local cleanId = tostring(rawId):gsub("%D", "")
+    if cleanId == "" then return false, "ID numérico não encontrado" end
+
+    for i = #HubState.CustomDances, 1, -1 do
+        if HubState.CustomDances[i].Name:lower() == name:lower() then
+            table.remove(HubState.CustomDances, i)
+        end
+    end
+
+    table.insert(HubState.CustomDances, {
+        Name = name,
+        ID = cleanId
+    })
+
+    if writefile then
+        pcall(function()
+            writefile("gohub_custom_dances.json", HttpService:JSONEncode(HubState.CustomDances))
+        end)
+    end
+
+    return true, cleanId
+end
+
+function AnimationEngine.DeleteCustomDance(nameOrIndex)
+    if type(nameOrIndex) == "number" then
+        if HubState.CustomDances[nameOrIndex] then
+            table.remove(HubState.CustomDances, nameOrIndex)
+            if writefile then
+                pcall(function()
+                    writefile("gohub_custom_dances.json", HttpService:JSONEncode(HubState.CustomDances))
+                end)
+            end
+            return true
+        end
+    elseif type(nameOrIndex) == "string" then
+        for i = #HubState.CustomDances, 1, -1 do
+            if HubState.CustomDances[i].Name:lower() == nameOrIndex:lower() then
+                table.remove(HubState.CustomDances, i)
+                if writefile then
+                    pcall(function()
+                        writefile("gohub_custom_dances.json", HttpService:JSONEncode(HubState.CustomDances))
+                    end)
+                end
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function AnimationEngine.LoadSavedDances()
+    if isfile and readfile and isfile("gohub_custom_dances.json") then
+        local success, data = pcall(function()
+            return HttpService:JSONDecode(readfile("gohub_custom_dances.json"))
+        end)
+        if success and type(data) == "table" then
+            HubState.CustomDances = data
+        end
+    end
+end
+AnimationEngine.LoadSavedDances()
 
 -- ====================================================================
 -- VISUAIS: X-RAY & ESP UNIVERSAL (CHAMS)
@@ -1160,7 +1236,33 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Botão de Fechar ("X")
+-- Botão de Minimizar ("—")
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Name = "MinimizeBtn"
+MinimizeButton.Size = UDim2.new(0, 28, 0, 28)
+MinimizeButton.Position = UDim2.new(1, -70, 0, 10)
+MinimizeButton.BackgroundColor3 = HubState.Theme.Card
+MinimizeButton.TextColor3 = HubState.Theme.AccentGlow
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.TextSize = 14
+MinimizeButton.Text = "—"
+MinimizeButton.ZIndex = 5
+MinimizeButton.Parent = MainWindow
+
+Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0, 6)
+local MinStroke = Instance.new("UIStroke", MinimizeButton)
+MinStroke.Color = HubState.Theme.Accent
+MinStroke.Thickness = 1
+
+MinimizeButton.MouseEnter:Connect(function()
+    TweenService:Create(MinimizeButton, TweenInfo.new(0.2), { BackgroundColor3 = HubState.Theme.Accent, TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+end)
+
+MinimizeButton.MouseLeave:Connect(function()
+    TweenService:Create(MinimizeButton, TweenInfo.new(0.2), { BackgroundColor3 = HubState.Theme.Card, TextColor3 = HubState.Theme.AccentGlow }):Play()
+end)
+
+-- Botão de Fechar ("✕")
 local CloseButton = Instance.new("TextButton")
 CloseButton.Name = "CloseBtn"
 CloseButton.Size = UDim2.new(0, 28, 0, 28)
@@ -1185,6 +1287,119 @@ end)
 CloseButton.MouseLeave:Connect(function()
     TweenService:Create(CloseButton, TweenInfo.new(0.2), { BackgroundColor3 = HubState.Theme.Card, TextColor3 = HubState.Theme.Close }):Play()
 end)
+
+-- Floating Badge Compacto para Restaurar o Hub Minimizado
+local FloatingBadge = Instance.new("Frame")
+FloatingBadge.Name = "GoHubFloatingBadge"
+FloatingBadge.Size = UDim2.new(0, 125, 0, 36)
+FloatingBadge.Position = UDim2.new(0.5, -62, 0, 18)
+FloatingBadge.BackgroundColor3 = HubState.Theme.Background
+FloatingBadge.BorderSizePixel = 0
+FloatingBadge.Visible = false
+FloatingBadge.ZIndex = 100
+FloatingBadge.Parent = MainScreen
+
+Instance.new("UICorner", FloatingBadge).CornerRadius = UDim.new(1, 0)
+local BadgeStroke = Instance.new("UIStroke", FloatingBadge)
+BadgeStroke.Color = HubState.Theme.AccentGlow
+BadgeStroke.Thickness = 1.5
+
+local BadgeIcon = Instance.new("ImageLabel")
+BadgeIcon.Size = UDim2.new(0, 26, 0, 26)
+BadgeIcon.Position = UDim2.new(0, 5, 0.5, -13)
+BadgeIcon.BackgroundColor3 = HubState.Theme.Card
+BadgeIcon.Image = HubState.Assets.WaifuImageId
+BadgeIcon.ScaleType = Enum.ScaleType.Fit
+BadgeIcon.ZIndex = 101
+BadgeIcon.Parent = FloatingBadge
+Instance.new("UICorner", BadgeIcon).CornerRadius = UDim.new(1, 0)
+
+local BadgeText = Instance.new("TextLabel")
+BadgeText.Size = UDim2.new(1, -38, 1, 0)
+BadgeText.Position = UDim2.new(0, 36, 0, 0)
+BadgeText.BackgroundTransparency = 1
+BadgeText.Font = Enum.Font.GothamBold
+BadgeText.Text = "GOHUB  ▲"
+BadgeText.TextColor3 = HubState.Theme.Text
+BadgeText.TextSize = 11
+BadgeText.TextXAlignment = Enum.TextXAlignment.Left
+BadgeText.ZIndex = 101
+BadgeText.Parent = FloatingBadge
+
+local BadgeClick = Instance.new("TextButton")
+BadgeClick.Size = UDim2.new(1, 0, 1, 0)
+BadgeClick.BackgroundTransparency = 1
+BadgeClick.Text = ""
+BadgeClick.ZIndex = 102
+BadgeClick.Parent = FloatingBadge
+
+-- Arrastar o Floating Badge
+local isBadgeDragging, badgeDragInput, badgeDragStart, badgeStartPos
+FloatingBadge.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isBadgeDragging = true
+        badgeDragStart = input.Position
+        badgeStartPos = FloatingBadge.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then isBadgeDragging = false end
+        end)
+    end
+end)
+
+FloatingBadge.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then badgeDragInput = input end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == badgeDragInput and isBadgeDragging then
+        local delta = input.Position - badgeDragStart
+        TweenService:Create(FloatingBadge, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = UDim2.new(badgeStartPos.X.Scale, badgeStartPos.X.Offset + delta.X, badgeStartPos.Y.Scale, badgeStartPos.Y.Offset + delta.Y)
+        }):Play()
+    end
+end)
+
+local function SetWindowMinimized(minimized)
+    HubState.WindowMinimized = minimized
+    if minimized then
+        TweenService:Create(MainWindow, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        }):Play()
+        task.delay(0.25, function()
+            if HubState.WindowMinimized then
+                MainWindow.Visible = false
+                FloatingBadge.Visible = true
+                FloatingBadge.Size = UDim2.new(0, 0, 0, 0)
+                TweenService:Create(FloatingBadge, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0, 125, 0, 36)
+                }):Play()
+            end
+        end)
+    else
+        FloatingBadge.Visible = false
+        MainWindow.Visible = true
+        TweenService:Create(MainWindow, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 720, 0, 450),
+            Position = UDim2.new(0.5, -360, 0.5, -225)
+        }):Play()
+    end
+end
+
+MinimizeButton.MouseButton1Click:Connect(function()
+    SetWindowMinimized(true)
+end)
+
+BadgeClick.MouseButton1Click:Connect(function()
+    SetWindowMinimized(false)
+end)
+
+-- Atalho de teclado para Minimizar/Restaurar (RightControl ou LeftAlt)
+RegisterLoop("UI_Minimize_Hotkey", UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and (input.KeyCode == Enum.KeyCode.RightControl or input.KeyCode == Enum.KeyCode.LeftAlt) then
+        SetWindowMinimized(not HubState.WindowMinimized)
+    end
+end))
 
 CloseButton.MouseButton1Click:Connect(function()
     MovementEngine.SetFlight(false)
@@ -1215,6 +1430,7 @@ CloseButton.MouseButton1Click:Connect(function()
     MM2RoleFolder:Destroy()
     MM2CoinFolder:Destroy()
     MM2HitboxFolder:Destroy()
+    FloatingBadge:Destroy()
     MainScreen:Destroy()
 end)
 
@@ -1548,11 +1764,49 @@ local function AddButton(parent, label, callback)
     btn.MouseButton1Click:Connect(callback)
 end
 
+local function AddInput(parent, placeholder, defaultText, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 36)
+    frame.BackgroundColor3 = HubState.Theme.Card
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", frame)
+    stroke.Color = Color3.fromRGB(45, 45, 60)
+    stroke.Thickness = 1
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(1, -20, 1, 0)
+    box.Position = UDim2.new(0, 10, 0, 0)
+    box.BackgroundTransparency = 1
+    box.Font = Enum.Font.Gotham
+    box.PlaceholderText = placeholder or "Digite aqui..."
+    box.PlaceholderColor3 = HubState.Theme.TextDim
+    box.Text = defaultText or ""
+    box.TextColor3 = HubState.Theme.Text
+    box.TextSize = 12
+    box.TextXAlignment = Enum.TextXAlignment.Left
+    box.ClearTextOnFocus = false
+    box.Parent = frame
+
+    box.Focused:Connect(function()
+        TweenService:Create(stroke, TweenInfo.new(0.2), { Color = HubState.Theme.Accent }):Play()
+    end)
+
+    box.FocusLost:Connect(function(enterPressed)
+        TweenService:Create(stroke, TweenInfo.new(0.2), { Color = Color3.fromRGB(45, 45, 60) }):Play()
+        if callback then callback(box.Text, enterPressed) end
+    end)
+
+    return box
+end
+
 -- ====================================================================
 -- COMMAND BAR RETRÁTIL DO INFINITE YIELD
 -- ====================================================================
 local CmdBarFrame = Instance.new("Frame")
-CmdBarFrame.Name = "WaifuCmdBar"
+CmdBarFrame.Name = "GoHubCmdBar"
 CmdBarFrame.Size = UDim2.new(0, 480, 0, 42)
 CmdBarFrame.Position = UDim2.new(0.5, -240, 0, -60)
 CmdBarFrame.BackgroundColor3 = HubState.Theme.Background
@@ -1735,6 +1989,16 @@ local function DispatchCommand(rawText)
         end)
     elseif cmd == "rejoin" or cmd == "rj" then
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+    elseif cmd == "savedance" then
+        local danceName = args[1]
+        local danceId = args[2]
+        if danceName and danceId then
+            AnimationEngine.SaveCustomDance(danceName, danceId)
+        end
+    elseif cmd == "min" or cmd == "minimize" then
+        SetWindowMinimized(true)
+    elseif cmd == "max" or cmd == "maximize" or cmd == "restore" then
+        SetWindowMinimized(false)
     end
 end
 
@@ -1937,7 +2201,7 @@ AddSlider(visualPage, "Raio do FOV", 50, 350, 120, function(v)
     FOVCircle.Size = UDim2.new(0, v * 2, 0, v * 2)
 end)
 
--- 6. DANÇAS & EMOTES (R15 EXPANDIDO, PASSINHO DO JAMAL & IY SUITE)
+-- 6. DANÇAS & EMOTES (R15 EXPANDIDO, PASSINHO DO JAMAL, IY SUITE & DANÇAS CUSTOMIZADAS)
 local animPage = CreatePage("Danças")
 
 AddSection(animPage, "Controle de Dança")
@@ -1947,6 +2211,165 @@ end)
 AddSlider(animPage, "Velocidade da Animação (%)", 25, 300, 100, function(pct)
     AnimationEngine.SetSpeed(pct / 100)
 end)
+
+AddSection(animPage, "Adicionar & Salvar Dança Customizada")
+local customNameBox = AddInput(animPage, "Nome da Dança (ex: Passinho Pro, Phonk...)", "")
+local customIdBox = AddInput(animPage, "ID da Animação / Asset ID (ex: 131086670591743)", "")
+
+local customBtnRow = Instance.new("Frame")
+customBtnRow.Size = UDim2.new(1, 0, 0, 36)
+customBtnRow.BackgroundTransparency = 1
+customBtnRow.Parent = animPage
+
+local testBtn = Instance.new("TextButton")
+testBtn.Size = UDim2.new(0.48, -4, 1, 0)
+testBtn.Position = UDim2.new(0, 0, 0, 0)
+testBtn.BackgroundColor3 = HubState.Theme.Card
+testBtn.Font = Enum.Font.GothamSemibold
+testBtn.Text = "▶ Testar ID"
+testBtn.TextColor3 = HubState.Theme.AccentGlow
+testBtn.TextSize = 12
+testBtn.Parent = customBtnRow
+Instance.new("UICorner", testBtn).CornerRadius = UDim.new(0, 6)
+
+local saveBtn = Instance.new("TextButton")
+saveBtn.Size = UDim2.new(0.52, -4, 1, 0)
+saveBtn.Position = UDim2.new(0.48, 8, 0, 0)
+saveBtn.BackgroundColor3 = HubState.Theme.Accent
+saveBtn.Font = Enum.Font.GothamBold
+saveBtn.Text = "💾 Salvar no Hub"
+saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+saveBtn.TextSize = 12
+saveBtn.Parent = customBtnRow
+Instance.new("UICorner", saveBtn).CornerRadius = UDim.new(0, 6)
+
+testBtn.MouseEnter:Connect(function()
+    TweenService:Create(testBtn, TweenInfo.new(0.2), { BackgroundColor3 = HubState.Theme.Accent, TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+end)
+testBtn.MouseLeave:Connect(function()
+    TweenService:Create(testBtn, TweenInfo.new(0.2), { BackgroundColor3 = HubState.Theme.Card, TextColor3 = HubState.Theme.AccentGlow }):Play()
+end)
+
+saveBtn.MouseEnter:Connect(function()
+    TweenService:Create(saveBtn, TweenInfo.new(0.2), { BackgroundColor3 = HubState.Theme.AccentGlow }):Play()
+end)
+saveBtn.MouseLeave:Connect(function()
+    TweenService:Create(saveBtn, TweenInfo.new(0.2), { BackgroundColor3 = HubState.Theme.Accent }):Play()
+end)
+
+AddSection(animPage, "Minhas Danças Salvas")
+local customDancesContainer = Instance.new("Frame")
+customDancesContainer.Size = UDim2.new(1, 0, 0, 140)
+customDancesContainer.BackgroundColor3 = HubState.Theme.Card
+customDancesContainer.Parent = animPage
+Instance.new("UICorner", customDancesContainer).CornerRadius = UDim.new(0, 6)
+
+local customScroll = Instance.new("ScrollingFrame")
+customScroll.Size = UDim2.new(1, -10, 1, -10)
+customScroll.Position = UDim2.new(0, 5, 0, 5)
+customScroll.BackgroundTransparency = 1
+customScroll.ScrollBarThickness = 3
+customScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+customScroll.Parent = customDancesContainer
+
+local customLayout = Instance.new("UIListLayout")
+customLayout.Padding = UDim.new(0, 4)
+customLayout.SortOrder = Enum.SortOrder.LayoutOrder
+customLayout.Parent = customScroll
+
+local function RefreshCustomDancesUI()
+    for _, child in ipairs(customScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    if #HubState.CustomDances == 0 then
+        local emptyLbl = Instance.new("Frame")
+        emptyLbl.Size = UDim2.new(1, 0, 0, 30)
+        emptyLbl.BackgroundTransparency = 1
+        emptyLbl.Parent = customScroll
+
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, 0, 1, 0)
+        txt.BackgroundTransparency = 1
+        txt.Font = Enum.Font.Gotham
+        txt.Text = "Nenhuma dança salva. Adicione um ID acima!"
+        txt.TextColor3 = HubState.Theme.TextDim
+        txt.TextSize = 11
+        txt.Parent = emptyLbl
+        return
+    end
+
+    for idx, d in ipairs(HubState.CustomDances) do
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, -6, 0, 30)
+        row.BackgroundColor3 = HubState.Theme.Background
+        row.Parent = customScroll
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+
+        local nameLbl = Instance.new("TextLabel")
+        nameLbl.Size = UDim2.new(1, -140, 1, 0)
+        nameLbl.Position = UDim2.new(0, 8, 0, 0)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Font = Enum.Font.GothamSemibold
+        nameLbl.Text = d.Name .. "  (" .. d.ID .. ")"
+        nameLbl.TextColor3 = HubState.Theme.Text
+        nameLbl.TextSize = 11
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+        nameLbl.Parent = row
+
+        local playBtn = Instance.new("TextButton")
+        playBtn.Size = UDim2.new(0, 60, 0, 22)
+        playBtn.Position = UDim2.new(1, -125, 0.5, -11)
+        playBtn.BackgroundColor3 = HubState.Theme.Accent
+        playBtn.Font = Enum.Font.GothamBold
+        playBtn.Text = "▶ Tocar"
+        playBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        playBtn.TextSize = 10
+        playBtn.Parent = row
+        Instance.new("UICorner", playBtn).CornerRadius = UDim.new(0, 4)
+
+        playBtn.MouseButton1Click:Connect(function()
+            AnimationEngine.PlayRaw(d.ID, d.Name)
+        end)
+
+        local delBtn = Instance.new("TextButton")
+        delBtn.Size = UDim2.new(0, 55, 0, 22)
+        delBtn.Position = UDim2.new(1, -60, 0.5, -11)
+        delBtn.BackgroundColor3 = HubState.Theme.Card
+        delBtn.Font = Enum.Font.GothamBold
+        delBtn.Text = "🗑 Excluir"
+        delBtn.TextColor3 = HubState.Theme.Close
+        delBtn.TextSize = 10
+        delBtn.Parent = row
+        Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
+
+        delBtn.MouseButton1Click:Connect(function()
+            AnimationEngine.DeleteCustomDance(idx)
+            RefreshCustomDancesUI()
+        end)
+    end
+end
+
+testBtn.MouseButton1Click:Connect(function()
+    local id = customIdBox.Text
+    local name = customNameBox.Text ~= "" and customNameBox.Text or "CustomTest"
+    if id and id ~= "" then
+        AnimationEngine.PlayRaw(id, name)
+    end
+end)
+
+saveBtn.MouseButton1Click:Connect(function()
+    local name = customNameBox.Text
+    local id = customIdBox.Text
+    local ok, res = AnimationEngine.SaveCustomDance(name, id)
+    if ok then
+        customNameBox.Text = ""
+        customIdBox.Text = ""
+        RefreshCustomDancesUI()
+    end
+end)
+
+RefreshCustomDancesUI()
 
 for _, cat in ipairs(EmoteCategories) do
     AddSection(animPage, cat.Category)
@@ -1975,7 +2398,7 @@ AddSection(cmdHelpPage, "Barra de Comandos Rápida")
 AddButton(cmdHelpPage, "Abrir / Fechar Command Bar (Atalho: ';')", function() ToggleCmdBar() end)
 AddSection(cmdHelpPage, "Lista de Comandos")
 local helpText = Instance.new("TextLabel")
-helpText.Size = UDim2.new(1, 0, 0, 240)
+helpText.Size = UDim2.new(1, 0, 0, 310)
 helpText.BackgroundTransparency = 1
 helpText.Font = Enum.Font.Gotham
 helpText.Text = [[
@@ -1986,12 +2409,16 @@ helpText.Text = [[
 • clicktp / unclicktp — Segure Ctrl e clique para teleportar
 • tptool — Spawna a ferramenta de teleporte no inventário
 • tp [alvo] — Teleporta até o jogador (ex: tp fer, tp nearest)
-• fling [alvo] / invisfling [alvo] — Lança o alvo para longe
-• loopfling [alvo] / unloopfling — Fling contínuo
+• walkfling / unwalkfling — WalkFling suave do Infinite Yield
+• fling [alvo] / loopfling [alvo] — Fling instantâneo ou contínuo
+• antifling / unantifling — Imunidade contra flings de terceiros
 • fullbright / nofog — Modifica a iluminação do mapa
-• dance [nome] / stopdance — Executa danças do catálogo
-• antisit / spin / unspin — Controles de personagem
-• rejoin / serverhop — Controles de servidor
+• dance [nome/id] / stopdance — Executa danças do catálogo ou custom
+• savedance [nome] [id] — Salva uma nova dança customizada
+• animspeed [num] — Ajusta a velocidade da dança em tempo real
+• min / max — Minimiza ou restaura o GoHub (Atalho: RightControl)
+• antisit / spin / unspin — Controles de física do personagem
+• rejoin / serverhop — Controles de reconexão de servidor
 ]]
 helpText.TextColor3 = HubState.Theme.TextDim
 helpText.TextSize = 12
