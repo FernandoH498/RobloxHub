@@ -32,6 +32,7 @@ local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 local VirtualUser = game:GetService("VirtualUser")
+local Debris = game:GetService("Debris")
 
 local LocalPlayer = Players.LocalPlayer
 while not LocalPlayer do
@@ -127,7 +128,9 @@ local HubState = {
         Active = false,
         WalkFling = false,
         AntiFling = false,
-        LoopTarget = nil
+        LoopTarget = nil,
+        DropKickActive = false,
+        DropKickForce = 5000
     },
     Animation = {
         CurrentTrack = nil,
@@ -589,6 +592,191 @@ function FlingEngine.ToggleAntiFling(enabled)
         DropLoop("AntiFling_Loop")
     end
 end
+
+-- 6. DROP KICK FLING (Motor Avançado de Impulso Direcional + WalkFling)
+-- Acionado via Tecla 'K', Command Bar (;kick, ;dropkick, ;k) ou Painel
+local dropKickAnimation = Instance.new("Animation")
+dropKickAnimation.AnimationId = "rbxassetid://133566007754001"
+local isDropKicking = false
+local dropKickActionId = 0
+
+function FlingEngine.PerformDropKick(customForce)
+    if isDropKicking then return end
+
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp or hum.Health <= 0 then return end
+
+    local animator = hum:FindFirstChildOfClass("Animator")
+    if not animator then
+        animator = Instance.new("Animator")
+        animator.Parent = hum
+    end
+
+    local leg = char:FindFirstChild("LeftLowerLeg") or char:FindFirstChild("Left Leg") or hrp
+
+    dropKickActionId = dropKickActionId + 1
+    local currentActionId = dropKickActionId
+    isDropKicking = true
+    HubState.Fling.DropKickActive = true
+
+    local origWalkSpeed = hum.WalkSpeed
+    local origAutoRotate = hum.AutoRotate
+
+    local track
+    local loadOk = pcall(function()
+        track = animator:LoadAnimation(dropKickAnimation)
+        track.Priority = Enum.AnimationPriority.Action
+    end)
+
+    if not loadOk or not track then
+        isDropKicking = false
+        HubState.Fling.DropKickActive = false
+        return
+    end
+
+    -- Setup NoCollision temporário com outros jogadores para penetração limpa
+    local tempConstraints = {}
+    for _, otherPlayer in ipairs(Players:GetPlayers()) do
+        if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+            for _, p1 in ipairs(char:GetDescendants()) do
+                if p1:IsA("BasePart") then
+                    for _, p2 in ipairs(otherPlayer.Character:GetDescendants()) do
+                        if p2:IsA("BasePart") then
+                            local con = Instance.new("NoCollisionConstraint")
+                            con.Part0 = p1
+                            con.Part1 = p2
+                            con.Parent = char
+                            table.insert(tempConstraints, con)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local function cleanupDropKick()
+        pcall(function()
+            if track and track.IsPlaying then track:Stop(0.1) end
+            if track then track:Destroy() end
+        end)
+        for _, con in ipairs(tempConstraints) do
+            pcall(function() con:Destroy() end)
+        end
+        table.clear(tempConstraints)
+        if hum and hum.Parent then
+            hum.WalkSpeed = origWalkSpeed
+            hum.AutoRotate = origAutoRotate
+            hum:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
+            hum.BreakJointsOnDeath = true
+            hum.PlatformStand = false
+        end
+        if hrp and hrp.Parent then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+        if leg and leg.Parent then
+            leg.AssemblyLinearVelocity = Vector3.zero
+            leg.AssemblyAngularVelocity = Vector3.zero
+        end
+        isDropKicking = false
+        HubState.Fling.DropKickActive = false
+    end
+
+    hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+    hum.BreakJointsOnDeath = false
+    hum.AutoRotate = true
+
+    track:Play(0)
+
+    task.spawn(function()
+        local camera = Workspace.CurrentCamera
+        local force = customForce or HubState.Fling.DropKickForce or 5000
+        local upForce = force * 0.0833
+        local animLen = track.Length
+        if animLen <= 0 then animLen = 1.2 end
+        local playDuration = math.max(0.1, animLen - 0.3)
+        local startTime = tick()
+
+        while track.IsPlaying and (tick() - startTime < playDuration) do
+            if currentActionId ~= dropKickActionId or not char.Parent or not hrp.Parent or hum.Health <= 0 then
+                break
+            end
+
+            -- Pulso WalkFling no HumanoidRootPart
+            local origVel = hrp.AssemblyLinearVelocity
+            hrp.AssemblyLinearVelocity = origVel * 999999 + Vector3.new(0, 999999, 0)
+
+            -- Impulso Direcional da Perna para frente
+            if leg and leg.Parent then
+                local moveDir = hum.MoveDirection
+                if moveDir.Magnitude > 0.05 then
+                    local forward = moveDir.Unit * math.max(origWalkSpeed, 40)
+                    leg.AssemblyLinearVelocity = Vector3.new(forward.X, leg.AssemblyLinearVelocity.Y, forward.Z)
+                elseif camera then
+                    local camLook = camera.CFrame.LookVector
+                    local forward = Vector3.new(camLook.X, 0, camLook.Z).Unit * math.max(origWalkSpeed, 40)
+                    leg.AssemblyLinearVelocity = Vector3.new(forward.X, leg.AssemblyLinearVelocity.Y, forward.Z)
+                end
+            end
+
+            -- Detecção e Fling nos jogadores próximos (12 studs)
+            local userLook = camera and camera.CFrame.LookVector or hrp.CFrame.LookVector
+            userLook = Vector3.new(userLook.X, 0, userLook.Z).Unit
+            local flingDir = (userLook * 3 + Vector3.new(0, 0.4, 0)).Unit
+
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local tChar = player.Character
+                    local tRoot = tChar:FindFirstChild("HumanoidRootPart")
+                    local tHum = tChar:FindFirstChildOfClass("Humanoid")
+                    if tRoot and tHum and tHum.Health > 0 then
+                        local dist = (tRoot.Position - hrp.Position).Magnitude
+                        if dist <= 12 then
+                            pcall(function()
+                                tHum:ChangeState(Enum.HumanoidStateType.Physics)
+                                tHum.PlatformStand = true
+                                for _ = 1, 3 do
+                                    pcall(function() tRoot:RequestNetworkOwnership() end)
+                                end
+                                local finalVel = flingDir * force + Vector3.new(0, upForce, 0)
+                                for _, part in ipairs(tChar:GetDescendants()) do
+                                    if part:IsA("BasePart") then
+                                        part.AssemblyLinearVelocity = finalVel
+                                    end
+                                end
+                                local bv = Instance.new("BodyVelocity")
+                                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                                bv.Velocity = finalVel
+                                bv.Parent = tRoot
+                                Debris:AddItem(bv, 0.5)
+                                tRoot.AssemblyAngularVelocity = Vector3.new(
+                                    math.random(-25, 25),
+                                    math.random(-25, 25),
+                                    math.random(-25, 25)
+                                )
+                            end)
+                        end
+                    end
+                end
+            end
+
+            RunService.RenderStepped:Wait()
+            if currentActionId ~= dropKickActionId or not char.Parent or not hrp.Parent then break end
+            hrp.AssemblyLinearVelocity = origVel
+
+            RunService.Stepped:Wait()
+            if currentActionId ~= dropKickActionId or not char.Parent or not hrp.Parent then break end
+            hrp.AssemblyLinearVelocity = origVel + Vector3.new(0, 0.1, 0)
+        end
+
+        cleanupDropKick()
+    end)
+end
+
 
 -- ====================================================================
 -- SISTEMA DE PERSONAGEM (ANTI-SIT, SPINBOT)
@@ -1117,23 +1305,151 @@ local MM2HitboxFolder = Instance.new("Folder")
 MM2HitboxFolder.Name = "Waifu_MM2_Hitboxes"
 pcall(function() MM2HitboxFolder.Parent = GuiRoot end)
 
+-- Cache de papéis obtidos via RemoteFunctions / RemoteEvents de MM2
+local MM2RoleDataCache = {}
+local lastRemotePoll = 0
+local remoteListenersSetup = false
+
+-- 1. Varredura e escuta de RemoteEvents / RemoteFunctions nativos de MM2
+local function SetupMM2RemoteListeners()
+    if remoteListenersSetup then return end
+    remoteListenersSetup = true
+
+    pcall(function()
+        local repStorage = game:GetService("ReplicatedStorage")
+        local remotesFolder = repStorage:FindFirstChild("Remotes")
+        local gameplayFolder = remotesFolder and remotesFolder:FindFirstChild("Gameplay")
+
+        -- Escuta em RemoteEvents de Gameplay (RoleSelect, RoundStart, etc.)
+        local function attachRemoteEvent(rem)
+            if rem and rem:IsA("RemoteEvent") then
+                rem.OnClientEvent:Connect(function(...)
+                    local args = {...}
+                    for _, arg in ipairs(args) do
+                        if type(arg) == "table" then
+                            for k, v in pairs(arg) do
+                                local targetName = type(k) == "string" and k or (type(v) == "table" and (v.Player or v.Name or v.Username))
+                                local roleStr = type(v) == "table" and (v.Role or v.role) or (type(v) == "string" and v)
+                                if targetName and roleStr and type(roleStr) == "string" then
+                                    local lowerRole = roleStr:lower()
+                                    if lowerRole:find("murd") then
+                                        MM2RoleDataCache[tostring(targetName):lower()] = "MURDER"
+                                    elseif lowerRole:find("sher") then
+                                        MM2RoleDataCache[tostring(targetName):lower()] = "SHERIFE"
+                                    elseif lowerRole:find("hero") then
+                                        MM2RoleDataCache[tostring(targetName):lower()] = "HEROI"
+                                    elseif lowerRole:find("innoc") then
+                                        MM2RoleDataCache[tostring(targetName):lower()] = "INOCENTE"
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+
+        if gameplayFolder then
+            for _, child in ipairs(gameplayFolder:GetChildren()) do
+                attachRemoteEvent(child)
+            end
+            gameplayFolder.ChildAdded:Connect(attachRemoteEvent)
+        end
+
+        if remotesFolder then
+            for _, child in ipairs(remotesFolder:GetChildren()) do
+                attachRemoteEvent(child)
+            end
+        end
+    end)
+end
+
+-- 2. Consulta ativa de RemoteFunction (GetPlayerData / GetRoles) com throttling seguro
+local function PollMM2Remotes()
+    local now = tick()
+    if now - lastRemotePoll < 1.0 then return end
+    lastRemotePoll = now
+
+    pcall(function()
+        local repStorage = game:GetService("ReplicatedStorage")
+        local remotesFolder = repStorage:FindFirstChild("Remotes")
+        local gameplayFolder = remotesFolder and remotesFolder:FindFirstChild("Gameplay")
+
+        local getPlayerData = (gameplayFolder and gameplayFolder:FindFirstChild("GetPlayerData"))
+            or (remotesFolder and remotesFolder:FindFirstChild("GetPlayerData"))
+            or repStorage:FindFirstChild("GetPlayerData", true)
+
+        if getPlayerData and getPlayerData:IsA("RemoteFunction") then
+            local data = getPlayerData:InvokeServer()
+            if type(data) == "table" then
+                for k, v in pairs(data) do
+                    local playerName = type(k) == "string" and k or (type(v) == "table" and (v.Player or v.Name or v.Username))
+                    local roleStr = type(v) == "table" and (v.Role or v.role) or (type(v) == "string" and v)
+                    if playerName and roleStr and type(roleStr) == "string" then
+                        local lower = roleStr:lower()
+                        if lower:find("murd") then
+                            MM2RoleDataCache[tostring(playerName):lower()] = "MURDER"
+                        elseif lower:find("sher") then
+                            MM2RoleDataCache[tostring(playerName):lower()] = "SHERIFE"
+                        elseif lower:find("hero") then
+                            MM2RoleDataCache[tostring(playerName):lower()] = "HEROI"
+                        elseif lower:find("innoc") then
+                            MM2RoleDataCache[tostring(playerName):lower()] = "INOCENTE"
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- 3. Identificador de papéis híbrido: RemoteEvent/Function + Inventário/Personagem + Inocentes Verdes
 local function DetectRole(p)
     if not p or not p.Character then return nil end
+
+    -- A) Checagem via cache de RemoteEvents / RemoteFunctions
+    local pNameLower = p.Name:lower()
+    local pDisplayNameLower = p.DisplayName:lower()
+    local cachedRole = MM2RoleDataCache[pNameLower] or MM2RoleDataCache[pDisplayNameLower]
+
+    if cachedRole == "MURDER" then
+        return "MURDER", HubState.Theme.Murderer
+    elseif cachedRole == "SHERIFE" then
+        return "SHERIFE", HubState.Theme.Sheriff
+    elseif cachedRole == "HEROI" then
+        return "HEROI", Color3.fromRGB(255, 215, 0)
+    end
+
+    -- B) Varredura de ferramentas no Character e Backpack (Faca, Revólver, GunDrop)
     local hasKnife, hasGun = false, false
     local function checkItem(item)
         if item:IsA("Tool") then
             local n = item.Name:lower()
-            if n == "knife" or n:find("scythe") or n:find("pitchfork") or n:find("blade") then hasKnife = true end
-            if n == "gun" or n == "revolver" or n:find("blaster") then hasGun = true end
+            if n == "knife" or n:find("scythe") or n:find("pitchfork") or n:find("blade") or n:find("dagger") or n:find("sword") then
+                hasKnife = true
+            end
+            if n == "gun" or n == "revolver" or n:find("blaster") or n:find("luger") or n:find("pistol") or n:find("shotgun") then
+                hasGun = true
+            end
         end
     end
+
     for _, item in ipairs(p.Character:GetChildren()) do checkItem(item) end
     local bp = p:FindFirstChild("Backpack")
     if bp then for _, item in ipairs(bp:GetChildren()) do checkItem(item) end end
 
-    if hasKnife then return "MURDER", HubState.Theme.Murderer end
-    if hasGun then return "SHERIFE", HubState.Theme.Sheriff end
-    return nil
+    if hasKnife then
+        MM2RoleDataCache[pNameLower] = "MURDER"
+        return "MURDER", HubState.Theme.Murderer
+    end
+
+    if hasGun then
+        MM2RoleDataCache[pNameLower] = "SHERIFE"
+        return "SHERIFE", HubState.Theme.Sheriff
+    end
+
+    -- C) Se não for Murder nem Xerife, é Inocente (Fica VERDE)
+    return "INOCENTE", HubState.Theme.Innocent
 end
 
 function MM2Engine.ToggleRoleESP(enabled)
@@ -1141,36 +1457,98 @@ function MM2Engine.ToggleRoleESP(enabled)
     if not enabled then
         DropLoop("MM2_RoleLoop")
         MM2RoleFolder:ClearAllChildren()
+        table.clear(MM2RoleDataCache)
         return
+    end
+
+    -- Inicia escuta passiva de RemoteEvents caso ainda não esteja rodando
+    SetupMM2RemoteListeners()
+
+    -- Criação persistente de Highlight e BillboardGui por jogador (O(1) estável, sem flickering)
+    local playerESP = {}
+
+    local function cleanupESP(p)
+        local data = playerESP[p]
+        if data then
+            pcall(function() data.Highlight:Destroy() end)
+            pcall(function() data.Billboard:Destroy() end)
+            playerESP[p] = nil
+        end
     end
 
     RegisterLoop("MM2_RoleLoop", RunService.Heartbeat:Connect(function()
         if not HubState.MM2.RoleESP then return end
-        MM2RoleFolder:ClearAllChildren()
+
+        -- Polling periódico seguro das remotas do MM2
+        PollMM2Remotes()
+
         for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-                local role, color = DetectRole(p)
-                if role then
-                    local hl = Instance.new("Highlight", MM2RoleFolder)
-                    hl.Adornee = p.Character
-                    hl.FillColor = color
-                    hl.OutlineColor = color
-                    hl.FillTransparency = 0.5
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Head") then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local role, color = DetectRole(p)
+                    local data = playerESP[p]
 
-                    local bgui = Instance.new("BillboardGui", MM2RoleFolder)
-                    bgui.Adornee = p.Character.Head
-                    bgui.Size = UDim2.new(0, 100, 0, 40)
-                    bgui.StudsOffset = Vector3.new(0, 2.5, 0)
-                    bgui.AlwaysOnTop = true
+                    if not data or not data.Highlight.Parent or not data.Billboard.Parent then
+                        cleanupESP(p)
 
-                    local txt = Instance.new("TextLabel", bgui)
-                    txt.Size = UDim2.new(1, 0, 1, 0)
-                    txt.BackgroundTransparency = 1
-                    txt.TextColor3 = color
-                    txt.Font = Enum.Font.GothamBold
-                    txt.TextSize = 14
-                    txt.Text = role
+                        local hl = Instance.new("Highlight")
+                        hl.Name = "MM2_HL_" .. p.Name
+                        hl.Adornee = p.Character
+                        hl.FillColor = color
+                        hl.OutlineColor = color
+                        hl.FillTransparency = (role == "INOCENTE") and 0.65 or 0.4
+                        hl.OutlineTransparency = 0.1
+                        hl.Parent = MM2RoleFolder
+
+                        local bgui = Instance.new("BillboardGui")
+                        bgui.Name = "MM2_BB_" .. p.Name
+                        bgui.Adornee = p.Character.Head
+                        bgui.Size = UDim2.new(0, 120, 0, 40)
+                        bgui.StudsOffset = Vector3.new(0, 2.5, 0)
+                        bgui.AlwaysOnTop = true
+                        bgui.Parent = MM2RoleFolder
+
+                        local txt = Instance.new("TextLabel")
+                        txt.Size = UDim2.new(1, 0, 1, 0)
+                        txt.BackgroundTransparency = 1
+                        txt.TextColor3 = color
+                        txt.Font = Enum.Font.GothamBold
+                        txt.TextSize = 13
+                        txt.TextStrokeTransparency = 0.2
+                        txt.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                        txt.Text = "[" .. role .. "] " .. p.DisplayName
+                        txt.Parent = bgui
+
+                        playerESP[p] = { Highlight = hl, Billboard = bgui, Label = txt, CurrentRole = role }
+                    else
+                        -- Atualiza cor e texto dinamicamente se o papel do jogador mudar durante a partida
+                        if data.Highlight.Adornee ~= p.Character then
+                            data.Highlight.Adornee = p.Character
+                            data.Billboard.Adornee = p.Character.Head
+                        end
+
+                        if data.CurrentRole ~= role then
+                            data.CurrentRole = role
+                            data.Highlight.FillColor = color
+                            data.Highlight.OutlineColor = color
+                            data.Highlight.FillTransparency = (role == "INOCENTE") and 0.65 or 0.4
+                            data.Label.TextColor3 = color
+                            data.Label.Text = "[" .. role .. "] " .. p.DisplayName
+                        end
+                    end
+                else
+                    cleanupESP(p)
                 end
+            else
+                cleanupESP(p)
+            end
+        end
+
+        -- Limpa jogadores que saíram do servidor
+        for p, _ in pairs(playerESP) do
+            if not p.Parent then
+                cleanupESP(p)
             end
         end
     end))
@@ -2119,6 +2497,10 @@ RegisterLoop("Quick_Actions_InputBegan", UserInputService.InputBegan:Connect(fun
     -- 4. Tecla M -> Alternar MM2 Role ESP (Murderer & Sheriff)
     elseif input.KeyCode == Enum.KeyCode.M then
         MM2Engine.ToggleRoleESP(not HubState.MM2.RoleESP)
+
+    -- 5. Tecla K -> Drop Kick Fling Instantâneo
+    elseif input.KeyCode == Enum.KeyCode.K then
+        FlingEngine.PerformDropKick()
     end
 end))
 
@@ -2684,6 +3066,9 @@ local function DispatchCommand(rawText)
             local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if myHrp then myHrp.CFrame = found[1].Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0) end
         end
+    elseif cmd == "dropkick" or cmd == "kick" or cmd == "k" or cmd == "flingkick" then
+        local force = tonumber(args[1])
+        FlingEngine.PerformDropKick(force)
     elseif cmd == "fling" then
         local targetName = args[1]
         if targetName then
@@ -2874,6 +3259,9 @@ AddButton(tpPage, "Teleportar para Alvo", function()
 end)
 
 AddSection(tpPage, "Sistemas de Fling (Motor Infinite Yield)")
+AddButton(tpPage, "💥 Drop Kick Fling [Tecla 'K']", function()
+    FlingEngine.PerformDropKick()
+end)
 AddToggle(tpPage, "WalkFling (Tocar e Lançar - Suave)", false, function(s) FlingEngine.ToggleWalkFling(s) end)
 AddToggle(tpPage, "SpinFling (Giro Clássico do IY)", false, function(s) FlingEngine.ToggleSpinFling(s) end)
 AddButton(tpPage, "Fling Instantâneo no Alvo", function()
@@ -2991,7 +3379,7 @@ AddButton(wpPage, "Atualizar Lista de Waypoints", RefreshWaypointsUI)
 -- 4. MURDER MYSTERY 2
 local mm2Page = CreatePage("MM2")
 AddSection(mm2Page, "Detecção & Papéis (Role ESP)")
-AddToggle(mm2Page, "Ver Assassino & Xerife (Role ESP)", false, function(s) MM2Engine.ToggleRoleESP(s) end)
+AddToggle(mm2Page, "Ver Assassino, Xerife & Inocentes (Remote & Inv ESP)", false, function(s) MM2Engine.ToggleRoleESP(s) end)
 AddSection(mm2Page, "Moedas & Itens")
 AddToggle(mm2Page, "ESP de Moedas (Coin ESP)", false, function(s) MM2Engine.ToggleCoinESP(s) end)
 AddToggle(mm2Page, "Auto-Coletar Arma ao Cair (Gun Drop)", false, function(s) MM2Engine.ToggleAutoGrabGun(s) end)
@@ -3556,7 +3944,8 @@ helpText.Text = [[
 • 2x 'W' — Sprint rápido inteligente (Velocidade = 25)
 • 2x 'Espaço' — Alterna voo suave (Velocidade = 70)
 • 'R' / ;r / ;xray — Alterna X-Ray (Paredes Transparentes)
-• 'M' / ;m / ;roles — Alterna MM2 Role ESP (Murderer e Sheriff)
+• 'M' / ;m / ;roles — Alterna MM2 Role ESP (Murderer, Sheriff & Inocentes Verdes)
+• 'K' / ;kick [força] — Drop Kick Fling instantâneo (Impulso Direcional 5000)
 • 'C' / ;c / ;radial — Abre/Fecha a roda de danças
 • 'X' / ;x / ;stopdance — Para qualquer dança instantaneamente
 • fly / unfly — Ativa/Desativa o voo suave
