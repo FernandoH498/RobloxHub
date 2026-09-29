@@ -2043,6 +2043,68 @@ function AnimationEngine.LoadSavedDances()
 end
 AnimationEngine.LoadSavedDances()
 
+local DefaultRadialSlots = {
+    [1] = { Name = "Jamal (Principal)", ID = "131086670591743" },
+    [2] = { Name = "Passinho Fogo", ID = "101508054279219" },
+    [3] = { Name = "Floss", ID = "10714340543" },
+    [4] = { Name = "Breakdance (IY)", ID = "3333432454" },
+    [5] = { Name = "Pop & Lock (IY)", ID = "4555808220" },
+    [6] = { Name = "Hip Hop (IY)", ID = "4049037604" },
+    [7] = { Name = "SpiderTree", ID = "3361426436" },
+    [8] = { Name = "Spin Dance", ID = "3361481910" }
+}
+
+function AnimationEngine.SaveRadialSlots()
+    pcall(function()
+        if typeof(writefile) == "function" then
+            local payload = HttpService:JSONEncode(HubState.Radial.Slots)
+            writefile("gohub_radial_slots.json", payload)
+        end
+    end)
+end
+
+function AnimationEngine.LoadRadialSlots()
+    pcall(function()
+        if typeof(isfile) == "function" and typeof(readfile) == "function" and isfile("gohub_radial_slots.json") then
+            local raw = readfile("gohub_radial_slots.json")
+            local data = HttpService:JSONDecode(raw)
+            if type(data) == "table" then
+                for i = 1, 8 do
+                    local slotEntry = data[tostring(i)] or data[i]
+                    if slotEntry and type(slotEntry) == "table" then
+                        HubState.Radial.Slots[i] = {
+                            Name = tostring(slotEntry.Name or "(Vazio)"),
+                            ID = slotEntry.ID and tostring(slotEntry.ID) or nil
+                        }
+                    end
+                end
+            end
+        end
+    end)
+end
+AnimationEngine.LoadRadialSlots()
+
+function AnimationEngine.SetRadialSlot(slotNum, name, id)
+    slotNum = tonumber(slotNum)
+    if not slotNum or slotNum < 1 or slotNum > 8 then return false, "Slot inválido (1 a 8)" end
+    HubState.Radial.Slots[slotNum] = {
+        Name = tostring(name or "(Vazio)"),
+        ID = id and tostring(id) or nil
+    }
+    AnimationEngine.SaveRadialSlots()
+    return true
+end
+
+function AnimationEngine.ResetRadialSlots()
+    for i = 1, 8 do
+        HubState.Radial.Slots[i] = {
+            Name = DefaultRadialSlots[i].Name,
+            ID = DefaultRadialSlots[i].ID
+        }
+    end
+    AnimationEngine.SaveRadialSlots()
+end
+
 function AnimationEngine.GetRadialEmotes()
     local list = {}
     for i = 1, 8 do
@@ -2362,7 +2424,26 @@ local function DispatchCommand(rawText)
         if hum then hum.Health = 0 end
     elseif cmd == "serverhop" or cmd == "shop" then MovementEngine.ServerHop()
     elseif cmd == "rejoin" or cmd == "rj" then MovementEngine.Rejoin()
-    elseif cmd == "c" or cmd == "radial" or cmd == "wheel" then ToggleRadialMenu()
+    elseif cmd == "setslot" or cmd == "slot" then
+    local slotNum = tonumber(args[1])
+    local targetVal = args[2]
+    if slotNum and slotNum >= 1 and slotNum <= 8 and targetVal then
+        local id = targetVal:match("%d+")
+        local name = "Slot " .. slotNum
+        if not id and DualEmoteDatabase[targetVal] then
+            local entry = DualEmoteDatabase[targetVal]
+            id = (entry.R15 or entry.R6 or ""):gsub("rbxassetid://", "")
+            name = targetVal
+        end
+        if id then
+            AnimationEngine.SetRadialSlot(slotNum, name, id)
+            SafeNotify({ Title = "Slot " .. slotNum, Content = "Configurado para " .. name, Duration = 2.5 })
+        end
+    end
+elseif cmd == "resetslots" or cmd == "defaultslots" then
+    AnimationEngine.ResetRadialSlots()
+    SafeNotify({ Title = "Roda Radial", Content = "Slots restaurados para o padrão!", Duration = 2.5 })
+elseif cmd == "c" or cmd == "radial" or cmd == "wheel" then ToggleRadialMenu()
     elseif cmd == "copy" or cmd == "copyskin" then
         local targetName = args[1]
         if targetName then
@@ -3079,6 +3160,13 @@ TabVisuals:CreateToggle({
 })
 
 local TabDances = Window:CreateTab("Danças", nil)
+
+local allPresetDances = {}
+for name, _ in pairs(DualEmoteDatabase) do
+    table.insert(allPresetDances, name)
+end
+table.sort(allPresetDances)
+
 TabDances:CreateSection("Controle Geral de Animação")
 
 TabDances:CreateButton({
@@ -3104,6 +3192,163 @@ TabDances:CreateSlider({
 TabDances:CreateParagraph({
     Title = "Roda Radial de Emotes [Tecla 'C']",
     Content = "Pressione a tecla 'C' a qualquer momento para abrir a Roda Circular de Emotes com seus 8 slots favoritos! Use as teclas numéricas 1 a 8 para ativar na hora."
+})
+
+-- ====================================================================
+-- SEÇÃO: EDITOR DA RODA RADIAL (SLOTS 1 A 8 EDITÁVEIS E SALVOS NO DISCO)
+-- ====================================================================
+TabDances:CreateSection("⭐ Personalizar Roda Radial (Slots 1 a 8)")
+
+local function GetRadialSlotListLabels()
+    local labels = {}
+    for i = 1, 8 do
+        local slotData = HubState.Radial.Slots[i]
+        local danceName = (slotData and slotData.Name and slotData.Name ~= "") and slotData.Name or "(Vazio)"
+        local danceId = (slotData and slotData.ID and slotData.ID ~= "") and (" [" .. slotData.ID .. "]") or ""
+        table.insert(labels, "Slot " .. i .. ": " .. danceName .. danceId)
+    end
+    return labels
+end
+
+local currentEditingSlot = 1
+local SlotSelectorDropdown
+local selectedPresetForSlot = allPresetDances[1] or "Floss"
+local inputSlotManualName = ""
+local inputSlotManualId = ""
+
+SlotSelectorDropdown = TabDances:CreateDropdown({
+    Name = "1. Escolher Slot para Editar",
+    Options = GetRadialSlotListLabels(),
+    CurrentOption = {GetRadialSlotListLabels()[1]},
+    MultipleOptions = false,
+    Flag = "dances_radial_slot_selector",
+    Callback = function(Option)
+        local sel = type(Option) == "table" and Option[1] or Option
+        local num = sel and tonumber(sel:match("Slot%s+(%d+)"))
+        if num then currentEditingSlot = num end
+    end,
+})
+
+TabDances:CreateDropdown({
+    Name = "2. Escolher Dança Pré-definida para o Slot",
+    Options = allPresetDances,
+    CurrentOption = {allPresetDances[1]},
+    MultipleOptions = false,
+    Flag = "dances_radial_preset_select",
+    Callback = function(Option)
+        selectedPresetForSlot = type(Option) == "table" and Option[1] or Option
+    end,
+})
+
+TabDances:CreateButton({
+    Name = "✅ Aplicar Dança Pré-definida no Slot Escolhido",
+    Callback = function()
+        if selectedPresetForSlot and DualEmoteDatabase[selectedPresetForSlot] then
+            local entry = DualEmoteDatabase[selectedPresetForSlot]
+            local rawId = entry.R15 or entry.R6 or ""
+            local cleanId = rawId:gsub("rbxassetid://", "")
+            AnimationEngine.SetRadialSlot(currentEditingSlot, selectedPresetForSlot, cleanId)
+            SafeDropdownUpdate(SlotSelectorDropdown, GetRadialSlotListLabels())
+            SafeNotify({
+                Title = "Roda Atualizada!",
+                Content = "Slot " .. currentEditingSlot .. " configurado: " .. selectedPresetForSlot,
+                Duration = 3,
+                Image = 135247969077372
+            })
+        end
+    end,
+})
+
+TabDances:CreateButton({
+    Name = "💾 Aplicar Dança Salva Selecionada no Slot",
+    Callback = function()
+        if selectedSavedDance and selectedSavedDance ~= "Nenhuma Dança Salva" then
+            local id = selectedSavedDance:match("%((%d+)%)")
+            local name = selectedSavedDance:match("^(.-)%s*%(") or "CustomDance"
+            if id then
+                AnimationEngine.SetRadialSlot(currentEditingSlot, name, id)
+                SafeDropdownUpdate(SlotSelectorDropdown, GetRadialSlotListLabels())
+                SafeNotify({
+                    Title = "Roda Atualizada!",
+                    Content = "Slot " .. currentEditingSlot .. " configurado: " .. name,
+                    Duration = 3,
+                    Image = 135247969077372
+                })
+            end
+        else
+            SafeNotify({ Title = "Aviso", Content = "Selecione uma dança salva na lista primeiro!", Duration = 3 })
+        end
+    end,
+})
+
+TabDances:CreateInput({
+    Name = "Nome Manual para o Slot (Opcional)",
+    PlaceholderText = "ex: Minha Dança Favorita",
+    RemoveTextAfterFocusLost = false,
+    Flag = "dances_radial_manual_name",
+    Callback = function(Text)
+        inputSlotManualName = Text
+    end,
+})
+
+TabDances:CreateInput({
+    Name = "ID Numérico Manual para o Slot",
+    PlaceholderText = "ex: 131086670591743",
+    RemoveTextAfterFocusLost = false,
+    Flag = "dances_radial_manual_id",
+    Callback = function(Text)
+        inputSlotManualId = Text
+    end,
+})
+
+TabDances:CreateButton({
+    Name = "🎯 Definir ID Manual no Slot Escolhido",
+    Callback = function()
+        local idNum = inputSlotManualId and inputSlotManualId:match("%d+")
+        if idNum then
+            local displayName = (inputSlotManualName and inputSlotManualName:gsub("%s+", "") ~= "") and inputSlotManualName or ("Dança " .. idNum)
+            AnimationEngine.SetRadialSlot(currentEditingSlot, displayName, idNum)
+            SafeDropdownUpdate(SlotSelectorDropdown, GetRadialSlotListLabels())
+            SafeNotify({
+                Title = "Slot Atualizado!",
+                Content = "Slot " .. currentEditingSlot .. " configurado com ID: " .. idNum,
+                Duration = 3,
+                Image = 135247969077372
+            })
+        else
+            SafeNotify({ Title = "Erro", Content = "Informe um ID numérico válido para o slot!", Duration = 3 })
+        end
+    end,
+})
+
+TabDances:CreateButton({
+    Name = "🗑 Limpar / Esvaziar Slot Escolhido",
+    Callback = function()
+        AnimationEngine.SetRadialSlot(currentEditingSlot, "(Vazio)", nil)
+        SafeDropdownUpdate(SlotSelectorDropdown, GetRadialSlotListLabels())
+        SafeNotify({ Title = "Slot Limpo", Content = "Slot " .. currentEditingSlot .. " agora está vazio.", Duration = 2.5 })
+    end,
+})
+
+TabDances:CreateButton({
+    Name = "🔄 Restaurar 8 Slots Padrão do GoHub",
+    Callback = function()
+        AnimationEngine.ResetRadialSlots()
+        SafeDropdownUpdate(SlotSelectorDropdown, GetRadialSlotListLabels())
+        SafeNotify({
+            Title = "Roda Restaurada!",
+            Content = "Os 8 slots foram restaurados para a configuração padrão.",
+            Duration = 3,
+            Image = 135247969077372
+        })
+    end,
+})
+
+TabDances:CreateButton({
+    Name = "👁 Testar / Abrir Roda Radial [Tecla 'C']",
+    Callback = function()
+        ToggleRadialMenu()
+    end,
 })
 
 TabDances:CreateSection("Adicionar Dança Customizada")
@@ -3207,11 +3452,7 @@ TabDances:CreateButton({
 
 TabDances:CreateSection("Danças Pré-definidas do GoHub")
 
-local allPresetDances = {}
-for name, _ in pairs(DualEmoteDatabase) do
-    table.insert(allPresetDances, name)
-end
-table.sort(allPresetDances)
+-- allPresetDances hoisted to top of TabDances
 
 local selectedPresetDance = allPresetDances[1]
 TabDances:CreateDropdown({
