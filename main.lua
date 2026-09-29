@@ -148,7 +148,17 @@ local HubState = {
     },
     Radial = {
         Visible = false,
-        SelectedSlot = nil
+        SelectedSlot = nil,
+        Slots = {
+            [1] = { Name = "Jamal (Principal)", ID = "131086670591743" },
+            [2] = { Name = "Passinho Fogo", ID = "101508054279219" },
+            [3] = { Name = "Floss", ID = "10714340543" },
+            [4] = { Name = "Breakdance (IY)", ID = "3333432454" },
+            [5] = { Name = "Pop & Lock (IY)", ID = "4555808220" },
+            [6] = { Name = "Hip Hop (IY)", ID = "4049037604" },
+            [7] = { Name = "SpiderTree", ID = "3361426436" },
+            [8] = { Name = "Spin Dance", ID = "3361481910" }
+        }
     },
     CmdBar = {
         Prefix = ";",
@@ -952,38 +962,79 @@ function AnimationEngine.LoadSavedDances()
 end
 AnimationEngine.LoadSavedDances()
 
-function AnimationEngine.GetRadialEmotes()
-    local list = {}
-    -- Prioridade 1: Danças salvas customizadas pelo usuário
-    if HubState.CustomDances and #HubState.CustomDances > 0 then
-        for _, d in ipairs(HubState.CustomDances) do
-            if #list < 8 then
-                table.insert(list, { Name = d.Name, ID = d.ID, IsCustom = true })
+function AnimationEngine.SaveRadialSlots()
+    pcall(function()
+        if typeof(writefile) == "function" then
+            writefile("gohub_radial_slots.json", HttpService:JSONEncode(HubState.Radial.Slots))
+        end
+    end)
+end
+
+function AnimationEngine.LoadRadialSlots()
+    pcall(function()
+        if typeof(isfile) == "function" and typeof(readfile) == "function" and isfile("gohub_radial_slots.json") then
+            local raw = readfile("gohub_radial_slots.json")
+            local data = HttpService:JSONDecode(raw)
+            if type(data) == "table" then
+                for i = 1, 8 do
+                    local keyNum = i
+                    local keyStr = tostring(i)
+                    local item = data[keyNum] or data[keyStr]
+                    if item and item.Name and item.ID then
+                        HubState.Radial.Slots[i] = { Name = item.Name, ID = tostring(item.ID) }
+                    end
+                end
             end
         end
-    end
-    -- Prioridade 2: Preencher com os emotes mais famosos (Passinho do Jamal, IY, Floss, etc.)
-    local fallbackEmotes = {
-        { Name = "Jamal (Principal)", ID = "131086670591743" },
-        { Name = "Passinho Fogo", ID = "101508054279219" },
-        { Name = "Floss", ID = "10714340543" },
-        { Name = "Breakdance (IY)", ID = "3333432454" },
-        { Name = "Pop & Lock (IY)", ID = "4555808220" },
-        { Name = "Hip Hop (IY)", ID = "4049037604" },
-        { Name = "SpiderTree", ID = "3361426436" },
-        { Name = "Spin Dance", ID = "3361481910" },
-        { Name = "Hyped", ID = "3695333486" },
-        { Name = "Dab", ID = "10714107111" }
+    end)
+end
+AnimationEngine.LoadRadialSlots()
+
+function AnimationEngine.SetRadialSlot(slotNum, name, rawId)
+    local slot = tonumber(slotNum)
+    if not slot or slot < 1 or slot > 8 then return false, "Slot inválido (use de 1 a 8)" end
+    if not name or name:gsub("%s+", "") == "" then return false, "Nome inválido" end
+    local cleanId = tostring(rawId or ""):gsub("%D", "")
+    if cleanId == "" then return false, "ID numérico inválido" end
+
+    HubState.Radial.Slots[slot] = {
+        Name = name,
+        ID = cleanId
     }
-    for _, fb in ipairs(fallbackEmotes) do
-        if #list < 8 then
-            local alreadyIn = false
-            for _, existing in ipairs(list) do
-                if existing.ID == fb.ID then alreadyIn = true; break end
-            end
-            if not alreadyIn then
-                table.insert(list, fb)
-            end
+    AnimationEngine.SaveRadialSlots()
+    return true, "Slot " .. slot .. " atualizado para " .. name
+end
+
+function AnimationEngine.ClearRadialSlot(slotNum)
+    local slot = tonumber(slotNum)
+    if not slot or slot < 1 or slot > 8 then return false end
+    HubState.Radial.Slots[slot] = { Name = "(Vazio)", ID = "" }
+    AnimationEngine.SaveRadialSlots()
+    return true
+end
+
+function AnimationEngine.ResetRadialSlots()
+    HubState.Radial.Slots = {
+        [1] = { Name = "Jamal (Principal)", ID = "131086670591743" },
+        [2] = { Name = "Passinho Fogo", ID = "101508054279219" },
+        [3] = { Name = "Floss", ID = "10714340543" },
+        [4] = { Name = "Breakdance (IY)", ID = "3333432454" },
+        [5] = { Name = "Pop & Lock (IY)", ID = "4555808220" },
+        [6] = { Name = "Hip Hop (IY)", ID = "4049037604" },
+        [7] = { Name = "SpiderTree", ID = "3361426436" },
+        [8] = { Name = "Spin Dance", ID = "3361481910" }
+    }
+    AnimationEngine.SaveRadialSlots()
+end
+
+function AnimationEngine.GetRadialEmotes()
+    local list = {}
+    for i = 1, 8 do
+        local slotData = HubState.Radial.Slots[i]
+        if slotData and slotData.ID and slotData.ID ~= "" then
+            table.insert(list, slotData)
+        else
+            table.insert(list, { Name = "(Vazio)", ID = nil })
         end
     end
     return list
@@ -1971,7 +2022,7 @@ local function BuildRadialSlots()
         end)
 
         slotBtn.MouseButton1Click:Connect(function()
-            if emoteData and emoteData.ID then
+            if emoteData and emoteData.ID and emoteData.ID ~= "" then
                 AnimationEngine.PlayRaw(emoteData.ID, emoteData.Name)
             end
             ToggleRadialMenu(false)
@@ -2658,6 +2709,15 @@ local function DispatchCommand(rawText)
         ToggleRadialMenu()
     elseif cmd == "x" or cmd == "stopdance" or cmd == "stop" then
         AnimationEngine.Stop()
+    elseif cmd == "setslot" then
+        local slotNum = tonumber(args[1])
+        local danceId = args[2]
+        local danceName = args[3] or "SlotDance"
+        if slotNum and danceId then
+            AnimationEngine.SetRadialSlot(slotNum, danceName, danceId)
+        end
+    elseif cmd == "resetslots" then
+        AnimationEngine.ResetRadialSlots()
     elseif cmd == "copy" or cmd == "copyskin" then
         local targetName = args[1]
         if targetName then
@@ -3004,8 +3064,8 @@ local function RefreshCustomDancesUI()
         nameLbl.Parent = row
 
         local playBtn = Instance.new("TextButton")
-        playBtn.Size = UDim2.new(0, 60, 0, 22)
-        playBtn.Position = UDim2.new(1, -125, 0.5, -11)
+        playBtn.Size = UDim2.new(0, 54, 0, 22)
+        playBtn.Position = UDim2.new(1, -182, 0.5, -11)
         playBtn.BackgroundColor3 = HubState.Theme.Accent
         playBtn.Font = Enum.Font.GothamBold
         playBtn.Text = "▶ Tocar"
@@ -3018,9 +3078,28 @@ local function RefreshCustomDancesUI()
             AnimationEngine.PlayRaw(d.ID, d.Name)
         end)
 
+        local equipBtn = Instance.new("TextButton")
+        equipBtn.Size = UDim2.new(0, 58, 0, 22)
+        equipBtn.Position = UDim2.new(1, -124, 0.5, -11)
+        equipBtn.BackgroundColor3 = Color3.fromRGB(36, 36, 52)
+        equipBtn.Font = Enum.Font.GothamBold
+        equipBtn.Text = "🎯 Roda"
+        equipBtn.TextColor3 = HubState.Theme.AccentGlow
+        equipBtn.TextSize = 10
+        equipBtn.Parent = row
+        Instance.new("UICorner", equipBtn).CornerRadius = UDim.new(0, 4)
+
+        equipBtn.MouseButton1Click:Connect(function()
+            -- Carrega automaticamente esta dança nos campos do Editor de Slots da Roda
+            if selectedSlotInput and slotDanceNameInput and slotDanceIdInput then
+                slotDanceNameInput.Text = d.Name
+                slotDanceIdInput.Text = d.ID
+            end
+        end)
+
         local delBtn = Instance.new("TextButton")
-        delBtn.Size = UDim2.new(0, 55, 0, 22)
-        delBtn.Position = UDim2.new(1, -60, 0.5, -11)
+        delBtn.Size = UDim2.new(0, 58, 0, 22)
+        delBtn.Position = UDim2.new(1, -62, 0.5, -11)
         delBtn.BackgroundColor3 = HubState.Theme.Card
         delBtn.Font = Enum.Font.GothamBold
         delBtn.Text = "🗑 Excluir"
@@ -3056,6 +3135,245 @@ saveBtn.MouseButton1Click:Connect(function()
 end)
 
 RefreshCustomDancesUI()
+
+AddSection(animPage, "Editor da Roda de Emotes (Slots 1 a 8 — Tecla 'C')")
+
+local slotEditorFrame = Instance.new("Frame")
+slotEditorFrame.Size = UDim2.new(1, 0, 0, 84)
+slotEditorFrame.BackgroundColor3 = HubState.Theme.Card
+slotEditorFrame.Parent = animPage
+Instance.new("UICorner", slotEditorFrame).CornerRadius = UDim.new(0, 6)
+
+local slotInputsRow = Instance.new("Frame")
+slotInputsRow.Size = UDim2.new(1, -16, 0, 32)
+slotInputsRow.Position = UDim2.new(0, 8, 0, 8)
+slotInputsRow.BackgroundTransparency = 1
+slotInputsRow.Parent = slotEditorFrame
+
+local slotSelectBox = Instance.new("TextBox")
+slotSelectBox.Size = UDim2.new(0, 75, 1, 0)
+slotSelectBox.Position = UDim2.new(0, 0, 0, 0)
+slotSelectBox.BackgroundColor3 = HubState.Theme.Background
+slotSelectBox.Font = Enum.Font.GothamBold
+slotSelectBox.PlaceholderText = "Slot (1-8)"
+slotSelectBox.PlaceholderColor3 = HubState.Theme.TextDim
+slotSelectBox.Text = "1"
+slotSelectBox.TextColor3 = HubState.Theme.AccentGlow
+slotSelectBox.TextSize = 11
+slotSelectBox.ClearTextOnFocus = false
+slotSelectBox.Parent = slotInputsRow
+Instance.new("UICorner", slotSelectBox).CornerRadius = UDim.new(0, 6)
+selectedSlotInput = slotSelectBox
+
+local slotNameBox = Instance.new("TextBox")
+slotNameBox.Size = UDim2.new(0.48, -48, 1, 0)
+slotNameBox.Position = UDim2.new(0, 82, 0, 0)
+slotNameBox.BackgroundColor3 = HubState.Theme.Background
+slotNameBox.Font = Enum.Font.Gotham
+slotNameBox.PlaceholderText = "Nome no Slot (ex: Passinho)"
+slotNameBox.PlaceholderColor3 = HubState.Theme.TextDim
+slotNameBox.Text = ""
+slotNameBox.TextColor3 = HubState.Theme.Text
+slotNameBox.TextSize = 11
+slotNameBox.TextXAlignment = Enum.TextXAlignment.Left
+slotNameBox.ClearTextOnFocus = false
+slotNameBox.Parent = slotInputsRow
+Instance.new("UICorner", slotNameBox).CornerRadius = UDim.new(0, 6)
+Instance.new("UIPadding", slotNameBox).PaddingLeft = UDim.new(0, 6)
+slotDanceNameInput = slotNameBox
+
+local slotIdBox = Instance.new("TextBox")
+slotIdBox.Size = UDim2.new(0.52, -42, 1, 0)
+slotIdBox.Position = UDim2.new(0.48, 40, 0, 0)
+slotIdBox.BackgroundColor3 = HubState.Theme.Background
+slotIdBox.Font = Enum.Font.Gotham
+slotIdBox.PlaceholderText = "ID do Emote (ex: 131086670591743)"
+slotIdBox.PlaceholderColor3 = HubState.Theme.TextDim
+slotIdBox.Text = ""
+slotIdBox.TextColor3 = HubState.Theme.Text
+slotIdBox.TextSize = 11
+slotIdBox.TextXAlignment = Enum.TextXAlignment.Left
+slotIdBox.ClearTextOnFocus = false
+slotIdBox.Parent = slotInputsRow
+Instance.new("UICorner", slotIdBox).CornerRadius = UDim.new(0, 6)
+Instance.new("UIPadding", slotIdBox).PaddingLeft = UDim.new(0, 6)
+slotDanceIdInput = slotIdBox
+
+local slotActionRow = Instance.new("Frame")
+slotActionRow.Size = UDim2.new(1, -16, 0, 30)
+slotActionRow.Position = UDim2.new(0, 8, 0, 46)
+slotActionRow.BackgroundTransparency = 1
+slotActionRow.Parent = slotEditorFrame
+
+local setSlotBtn = Instance.new("TextButton")
+setSlotBtn.Size = UDim2.new(0.48, -4, 1, 0)
+setSlotBtn.Position = UDim2.new(0, 0, 0, 0)
+setSlotBtn.BackgroundColor3 = HubState.Theme.Accent
+setSlotBtn.Font = Enum.Font.GothamBold
+setSlotBtn.Text = "💾 Salvar no Slot Selecionado"
+setSlotBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+setSlotBtn.TextSize = 11
+setSlotBtn.Parent = slotActionRow
+Instance.new("UICorner", setSlotBtn).CornerRadius = UDim.new(0, 6)
+
+local resetSlotsBtn = Instance.new("TextButton")
+resetSlotsBtn.Size = UDim2.new(0.26, -4, 1, 0)
+resetSlotsBtn.Position = UDim2.new(0.48, 4, 0, 0)
+resetSlotsBtn.BackgroundColor3 = Color3.fromRGB(36, 36, 52)
+resetSlotsBtn.Font = Enum.Font.GothamSemibold
+resetSlotsBtn.Text = "🔄 Padrão"
+resetSlotsBtn.TextColor3 = HubState.Theme.TextDim
+resetSlotsBtn.TextSize = 11
+resetSlotsBtn.Parent = slotActionRow
+Instance.new("UICorner", resetSlotsBtn).CornerRadius = UDim.new(0, 6)
+
+local clearSlotBtn = Instance.new("TextButton")
+clearSlotBtn.Size = UDim2.new(0.26, -4, 1, 0)
+clearSlotBtn.Position = UDim2.new(0.74, 4, 0, 0)
+clearSlotBtn.BackgroundColor3 = Color3.fromRGB(36, 36, 52)
+clearSlotBtn.Font = Enum.Font.GothamSemibold
+clearSlotBtn.Text = "🗑 Limpar Slot"
+clearSlotBtn.TextColor3 = HubState.Theme.Close
+clearSlotBtn.TextSize = 11
+clearSlotBtn.Parent = slotActionRow
+Instance.new("UICorner", clearSlotBtn).CornerRadius = UDim.new(0, 6)
+
+local slotStatusLabel = Instance.new("TextLabel")
+slotStatusLabel.Size = UDim2.new(1, 0, 0, 18)
+slotStatusLabel.BackgroundTransparency = 1
+slotStatusLabel.Font = Enum.Font.Gotham
+slotStatusLabel.Text = "Dica: Clique em '🎯 Roda' em qualquer dança salva ou digite o Slot e ID acima!"
+slotStatusLabel.TextColor3 = HubState.Theme.TextDim
+slotStatusLabel.TextSize = 11
+slotStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+slotStatusLabel.Parent = animPage
+
+-- Container dos 8 Cards dos Slots da Roda
+local wheelCardsContainer = Instance.new("Frame")
+wheelCardsContainer.Size = UDim2.new(1, 0, 0, 150)
+wheelCardsContainer.BackgroundColor3 = HubState.Theme.Card
+wheelCardsContainer.Parent = animPage
+Instance.new("UICorner", wheelCardsContainer).CornerRadius = UDim.new(0, 6)
+
+local wheelCardsScroll = Instance.new("ScrollingFrame")
+wheelCardsScroll.Size = UDim2.new(1, -10, 1, -10)
+wheelCardsScroll.Position = UDim2.new(0, 5, 0, 5)
+wheelCardsScroll.BackgroundTransparency = 1
+wheelCardsScroll.ScrollBarThickness = 3
+wheelCardsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+wheelCardsScroll.Parent = wheelCardsContainer
+
+local wheelCardsLayout = Instance.new("UIListLayout")
+wheelCardsLayout.Padding = UDim.new(0, 4)
+wheelCardsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+wheelCardsLayout.Parent = wheelCardsScroll
+
+local function RefreshWheelSlotsUI()
+    for _, child in ipairs(wheelCardsScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    for i = 1, 8 do
+        local slotData = HubState.Radial.Slots[i] or { Name = "(Vazio)", ID = "" }
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(1, -6, 0, 30)
+        card.BackgroundColor3 = HubState.Theme.Background
+        card.Parent = wheelCardsScroll
+        Instance.new("UICorner", card).CornerRadius = UDim.new(0, 4)
+
+        local badge = Instance.new("TextLabel")
+        badge.Size = UDim2.new(0, 20, 0, 20)
+        badge.Position = UDim2.new(0, 6, 0.5, -10)
+        badge.BackgroundColor3 = HubState.Theme.Accent
+        badge.Font = Enum.Font.GothamBold
+        badge.Text = tostring(i)
+        badge.TextColor3 = Color3.fromRGB(255, 255, 255)
+        badge.TextSize = 10
+        badge.Parent = card
+        Instance.new("UICorner", badge).CornerRadius = UDim.new(1, 0)
+
+        local infoText = Instance.new("TextLabel")
+        infoText.Size = UDim2.new(1, -160, 1, 0)
+        infoText.Position = UDim2.new(0, 32, 0, 0)
+        infoText.BackgroundTransparency = 1
+        infoText.Font = Enum.Font.GothamSemibold
+        local isFilled = (slotData.ID and slotData.ID ~= "")
+        infoText.Text = slotData.Name .. (isFilled and ("  (" .. slotData.ID .. ")") or "")
+        infoText.TextColor3 = isFilled and HubState.Theme.Text or HubState.Theme.TextDim
+        infoText.TextSize = 11
+        infoText.TextXAlignment = Enum.TextXAlignment.Left
+        infoText.TextTruncate = Enum.TextTruncate.AtEnd
+        infoText.Parent = card
+
+        local editBtn = Instance.new("TextButton")
+        editBtn.Size = UDim2.new(0, 58, 0, 22)
+        editBtn.Position = UDim2.new(1, -124, 0.5, -11)
+        editBtn.BackgroundColor3 = Color3.fromRGB(36, 36, 52)
+        editBtn.Font = Enum.Font.GothamBold
+        editBtn.Text = "✏ Editar"
+        editBtn.TextColor3 = HubState.Theme.AccentGlow
+        editBtn.TextSize = 10
+        editBtn.Parent = card
+        Instance.new("UICorner", editBtn).CornerRadius = UDim.new(0, 4)
+
+        editBtn.MouseButton1Click:Connect(function()
+            slotSelectBox.Text = tostring(i)
+            slotNameBox.Text = isFilled and slotData.Name or ""
+            slotIdBox.Text = isFilled and slotData.ID or ""
+        end)
+
+        local playSlotBtn = Instance.new("TextButton")
+        playSlotBtn.Size = UDim2.new(0, 58, 0, 22)
+        playSlotBtn.Position = UDim2.new(1, -62, 0.5, -11)
+        playSlotBtn.BackgroundColor3 = isFilled and HubState.Theme.Accent or Color3.fromRGB(36, 36, 52)
+        playSlotBtn.Font = Enum.Font.GothamBold
+        playSlotBtn.Text = "▶ Tocar"
+        playSlotBtn.TextColor3 = isFilled and Color3.fromRGB(255, 255, 255) or HubState.Theme.TextDim
+        playSlotBtn.TextSize = 10
+        playSlotBtn.Parent = card
+        Instance.new("UICorner", playSlotBtn).CornerRadius = UDim.new(0, 4)
+
+        playSlotBtn.MouseButton1Click:Connect(function()
+            if isFilled then
+                AnimationEngine.PlayRaw(slotData.ID, slotData.Name)
+            end
+        end)
+    end
+end
+
+setSlotBtn.MouseButton1Click:Connect(function()
+    local slotNum = tonumber(slotSelectBox.Text)
+    local name = slotNameBox.Text
+    local id = slotIdBox.Text
+    local ok, res = AnimationEngine.SetRadialSlot(slotNum, name, id)
+    if ok then
+        slotStatusLabel.Text = "Sucesso: " .. res
+        slotStatusLabel.TextColor3 = HubState.Theme.Success
+        RefreshWheelSlotsUI()
+    else
+        slotStatusLabel.Text = "Erro: " .. tostring(res)
+        slotStatusLabel.TextColor3 = HubState.Theme.Close
+    end
+end)
+
+resetSlotsBtn.MouseButton1Click:Connect(function()
+    AnimationEngine.ResetRadialSlots()
+    slotStatusLabel.Text = "Status: Slots restaurados para os 8 emotes padrão!"
+    slotStatusLabel.TextColor3 = HubState.Theme.Success
+    RefreshWheelSlotsUI()
+end)
+
+clearSlotBtn.MouseButton1Click:Connect(function()
+    local slotNum = tonumber(slotSelectBox.Text)
+    if slotNum then
+        AnimationEngine.ClearRadialSlot(slotNum)
+        slotStatusLabel.Text = "Status: Slot " .. slotNum .. " limpo!"
+        slotStatusLabel.TextColor3 = HubState.Theme.TextDim
+        RefreshWheelSlotsUI()
+    end
+end)
+
+RefreshWheelSlotsUI()
 
 for _, cat in ipairs(EmoteCategories) do
     AddSection(animPage, cat.Category)
@@ -3178,6 +3496,8 @@ helpText.Text = [[
 • fullbright / nofog — Modifica a iluminação do mapa
 • c / radial — Abre/Fecha o menu circular de danças (Atalho: 'C')
 • x / stopdance — Para qualquer dança instantaneamente (Atalho: 'X')
+• setslot [1-8] [id] [nome] — Configura uma dança em um slot da roda
+• resetslots — Restaura os 8 slots padrão da roda
 • dance [nome/id] — Executa danças do catálogo ou custom
 • savedance [nome] [id] — Salva uma nova dança customizada
 • animspeed [num] — Ajusta a velocidade da dança em tempo real
