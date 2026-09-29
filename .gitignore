@@ -1,0 +1,19 @@
+# Python caches & scratch
+__pycache__/
+*.py[cod]
+*$py.class
+*.py
+
+# Intermediate reference & build scratch
+reference_*.lua
+drop_kick_source.lua
+v13_*.lua
+WaifuHubV9.lua
+check_*.py
+build_*.py
+patch_*.py
+inspect_*.py
+
+# OS metadata
+.DS_Store
+Thumbs.db
