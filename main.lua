@@ -2070,6 +2070,72 @@ RadialBackdrop.InputBegan:Connect(function(input)
     end
 end)
 
+-- ====================================================================
+-- SISTEMA DE COMANDOS RÁPIDOS & ATALHOS INTELIGENTES (V12)
+-- 1. Double Tap 'W' -> Correr com Velocidade = 25
+-- 2. Double Tap 'Espaço' -> Voar com Velocidade = 70
+-- 3. Tecla 'R' -> Alternar X-Ray
+-- 4. Tecla 'M' -> Alternar MM2 Role ESP (Murderer & Sheriff)
+-- ====================================================================
+local lastWTime = 0
+local isDoubleTapSprinting = false
+local wasSpeedActiveBeforeSprint = false
+local lastSpaceTime = 0
+
+RegisterLoop("Quick_Actions_InputBegan", UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    local now = tick()
+
+    -- 1. Double Tap W -> Sprint 25
+    if input.KeyCode == Enum.KeyCode.W then
+        if (now - lastWTime) <= 0.32 then
+            if not isDoubleTapSprinting then
+                wasSpeedActiveBeforeSprint = HubState.Movement.SpeedActive
+            end
+            isDoubleTapSprinting = true
+            HubState.Movement.Speed = 25
+            HubState.Movement.SpeedActive = true
+            MovementEngine.ApplySpeed()
+        end
+        lastWTime = now
+
+    -- 2. Double Tap Espaço -> Voo Suave 70
+    elseif input.KeyCode == Enum.KeyCode.Space then
+        if (now - lastSpaceTime) <= 0.35 then
+            local willFly = not HubState.Movement.FlightActive
+            if willFly then
+                HubState.Movement.FlightSpeed = 70
+            end
+            MovementEngine.SetFlight(willFly)
+            lastSpaceTime = 0
+        else
+            lastSpaceTime = now
+        end
+
+    -- 3. Tecla R -> Alternar X-Ray
+    elseif input.KeyCode == Enum.KeyCode.R then
+        XRayEngine.Toggle(not HubState.Visuals.XRayActive)
+
+    -- 4. Tecla M -> Alternar MM2 Role ESP (Murderer & Sheriff)
+    elseif input.KeyCode == Enum.KeyCode.M then
+        MM2Engine.ToggleRoleESP(not HubState.MM2.RoleESP)
+    end
+end))
+
+RegisterLoop("Quick_Actions_InputEnded", UserInputService.InputEnded:Connect(function(input, gpe)
+    if input.KeyCode == Enum.KeyCode.W and isDoubleTapSprinting then
+        isDoubleTapSprinting = false
+        if not wasSpeedActiveBeforeSprint then
+            HubState.Movement.SpeedActive = false
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.WalkSpeed = HubState.Movement.DefaultSpeed
+            end
+        end
+    end
+end))
+
 -- Hotkey Global: Tecla 'C' para Menu Circular, Tecla 'X' para Parar Dança
 RegisterLoop("UI_Radial_Dance_Hotkeys", UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
@@ -2674,10 +2740,14 @@ local function DispatchCommand(rawText)
         CharEngine.ToggleSpinBot(true)
     elseif cmd == "unspin" then
         CharEngine.ToggleSpinBot(false)
-    elseif cmd == "xray" then
+    elseif cmd == "xray" or cmd == "r" then
         XRayEngine.Toggle(true)
-    elseif cmd == "unxray" then
+    elseif cmd == "unxray" or cmd == "unr" then
         XRayEngine.Toggle(false)
+    elseif cmd == "roles" or cmd == "mm2" or cmd == "m" then
+        MM2Engine.ToggleRoleESP(not HubState.MM2.RoleESP)
+    elseif cmd == "unroles" or cmd == "unmm2" then
+        MM2Engine.ToggleRoleESP(false)
     elseif cmd == "respawn" or cmd == "refresh" then
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -3479,10 +3549,16 @@ AddSection(cmdHelpPage, "Barra de Comandos Rápida")
 AddButton(cmdHelpPage, "Abrir / Fechar Command Bar (Atalho: ';')", function() ToggleCmdBar() end)
 AddSection(cmdHelpPage, "Lista de Comandos")
 local helpText = Instance.new("TextLabel")
-helpText.Size = UDim2.new(1, 0, 0, 310)
+helpText.Size = UDim2.new(1, 0, 0, 420)
 helpText.BackgroundTransparency = 1
 helpText.Font = Enum.Font.Gotham
 helpText.Text = [[
+• 2x 'W' — Sprint rápido inteligente (Velocidade = 25)
+• 2x 'Espaço' — Alterna voo suave (Velocidade = 70)
+• 'R' / ;r / ;xray — Alterna X-Ray (Paredes Transparentes)
+• 'M' / ;m / ;roles — Alterna MM2 Role ESP (Murderer e Sheriff)
+• 'C' / ;c / ;radial — Abre/Fecha a roda de danças
+• 'X' / ;x / ;stopdance — Para qualquer dança instantaneamente
 • fly / unfly — Ativa/Desativa o voo suave
 • speed [num] / unspeed — Configura a velocidade
 • noclip / clip — Ativa/Desativa atravessar paredes
@@ -3494,8 +3570,6 @@ helpText.Text = [[
 • fling [alvo] / loopfling [alvo] — Fling instantâneo ou contínuo
 • antifling / unantifling — Imunidade contra flings de terceiros
 • fullbright / nofog — Modifica a iluminação do mapa
-• c / radial — Abre/Fecha o menu circular de danças (Atalho: 'C')
-• x / stopdance — Para qualquer dança instantaneamente (Atalho: 'X')
 • setslot [1-8] [id] [nome] — Configura uma dança em um slot da roda
 • resetslots — Restaura os 8 slots padrão da roda
 • dance [nome/id] — Executa danças do catálogo ou custom
