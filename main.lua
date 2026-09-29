@@ -1,6 +1,6 @@
 --[[
     ========================================================================
-    GOHUB — DEFINITIVE V11 (FINAL ENGINE)
+    GOHUB — DEFINITIVE V12 (FINAL ENGINE)
     Target: Roblox Studio / Luau Engine
     
     Front-End Guarantee:
@@ -141,6 +141,15 @@ local HubState = {
         SpinSpeed = 30
     },
     Waypoints = {},
+    Skin = {
+        OriginalDesc = nil,
+        HeadlessActive = false,
+        KorbloxActive = false
+    },
+    Radial = {
+        Visible = false,
+        SelectedSlot = nil
+    },
     CmdBar = {
         Prefix = ";",
         Visible = false
@@ -943,6 +952,43 @@ function AnimationEngine.LoadSavedDances()
 end
 AnimationEngine.LoadSavedDances()
 
+function AnimationEngine.GetRadialEmotes()
+    local list = {}
+    -- Prioridade 1: Danças salvas customizadas pelo usuário
+    if HubState.CustomDances and #HubState.CustomDances > 0 then
+        for _, d in ipairs(HubState.CustomDances) do
+            if #list < 8 then
+                table.insert(list, { Name = d.Name, ID = d.ID, IsCustom = true })
+            end
+        end
+    end
+    -- Prioridade 2: Preencher com os emotes mais famosos (Passinho do Jamal, IY, Floss, etc.)
+    local fallbackEmotes = {
+        { Name = "Jamal (Principal)", ID = "131086670591743" },
+        { Name = "Passinho Fogo", ID = "101508054279219" },
+        { Name = "Floss", ID = "10714340543" },
+        { Name = "Breakdance (IY)", ID = "3333432454" },
+        { Name = "Pop & Lock (IY)", ID = "4555808220" },
+        { Name = "Hip Hop (IY)", ID = "4049037604" },
+        { Name = "SpiderTree", ID = "3361426436" },
+        { Name = "Spin Dance", ID = "3361481910" },
+        { Name = "Hyped", ID = "3695333486" },
+        { Name = "Dab", ID = "10714107111" }
+    }
+    for _, fb in ipairs(fallbackEmotes) do
+        if #list < 8 then
+            local alreadyIn = false
+            for _, existing in ipairs(list) do
+                if existing.ID == fb.ID then alreadyIn = true; break end
+            end
+            if not alreadyIn then
+                table.insert(list, fb)
+            end
+        end
+    end
+    return list
+end
+
 -- ====================================================================
 -- VISUAIS: X-RAY & ESP UNIVERSAL (CHAMS)
 -- ====================================================================
@@ -1145,6 +1191,294 @@ end
 -- ====================================================================
 -- COMBATE & MIRA (AIMBOT FOV RAYCAST)
 -- ====================================================================
+-- ====================================================================
+-- SKIN & MORPH SUITE (REMOTE SCANNER, REANIMATION RIG & VISUAL CLONER)
+-- ====================================================================
+local SkinEngine = {}
+
+-- 1. Detecção de Remotas do Servidor para Replicação Global (Everyone Sees)
+function SkinEngine.ScanAndFireRemote(targetUserId, targetOutfitId)
+    local found = false
+    local remotesToTest = {}
+    
+    local function checkObj(obj)
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            local n = obj.Name:lower()
+            if n:find("cloth") or n:find("outfit") or n:find("avatar") or n:find("morph") 
+               or n:find("wear") or n:find("char") or n:find("skin") or n:find("costume") 
+               or n:find("dress") or n:find("bundle") or n:find("apply") then
+                table.insert(remotesToTest, obj)
+            end
+        end
+    end
+
+    pcall(function()
+        for _, obj in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
+            checkObj(obj)
+        end
+    end)
+    pcall(function()
+        for _, obj in ipairs(game:GetService("JointsService"):GetDescendants()) do
+            checkObj(obj)
+        end
+    end)
+
+    for _, rem in ipairs(remotesToTest) do
+        local ok = pcall(function()
+            if rem:IsA("RemoteEvent") then
+                if targetOutfitId then
+                    rem:FireServer(targetOutfitId)
+                    rem:FireServer("Outfit", targetOutfitId)
+                    rem:FireServer("Wear", targetOutfitId)
+                end
+                if targetUserId then
+                    rem:FireServer(targetUserId)
+                    rem:FireServer("Character", targetUserId)
+                    rem:FireServer("Morph", targetUserId)
+                end
+            elseif rem:IsA("RemoteFunction") then
+                if targetOutfitId then
+                    task.spawn(function() pcall(function() rem:InvokeServer(targetOutfitId) end) end)
+                end
+                if targetUserId then
+                    task.spawn(function() pcall(function() rem:InvokeServer(targetUserId) end) end)
+                end
+            end
+        end)
+        if ok then found = true end
+    end
+
+    -- Testar Admin Suites (Adonis, HD Admin, Kohl's)
+    pcall(function()
+        local chatService = game:GetService("TextChatService")
+        local legacyChat = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+        local cmdStr = ";char me " .. tostring(targetUserId or targetOutfitId)
+        
+        if legacyChat and legacyChat:FindFirstChild("SayMessageRequest") then
+            legacyChat.SayMessageRequest:FireServer(cmdStr, "All")
+            legacyChat.SayMessageRequest:FireServer(":char me " .. tostring(targetUserId or targetOutfitId), "All")
+        end
+        if chatService and chatService.ChatInputBarConfiguration then
+            local channel = chatService.TextChannels:FindFirstChild("RBXGeneral")
+            if channel then
+                channel:SendAsync(cmdStr)
+                channel:SendAsync(":char me " .. tostring(targetUserId or targetOutfitId))
+            end
+        end
+    end)
+
+    return found
+end
+
+-- 2. Clonador de Aparência (HumanoidDescription / Morph Local e Servidor)
+function SkinEngine.ClonePlayerSkin(targetPlayer)
+    if not targetPlayer then return false, "Jogador não especificado" end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return false, "Humanoid não encontrado" end
+
+    -- Salvar descrição original caso queira resetar
+    if not HubState.Skin.OriginalDesc then
+        pcall(function()
+            HubState.Skin.OriginalDesc = hum:GetAppliedDescription()
+        end)
+    end
+
+    local targetUserId = targetPlayer.UserId
+    
+    -- Tentar disparo de remotas do jogo primeiro (Everyone Sees se disponível)
+    SkinEngine.ScanAndFireRemote(targetUserId, nil)
+
+    -- Aplicar descrição completa no cliente
+    local successDesc, desc = pcall(function()
+        return Players:GetHumanoidDescriptionFromUserId(targetUserId)
+    end)
+
+    if successDesc and desc then
+        pcall(function()
+            hum:ApplyDescription(desc)
+        end)
+        return true, "Skin clonada com sucesso de @" .. targetPlayer.Name
+    end
+
+    -- Fallback manual de roupas/acessórios caso GetHumanoidDescription falhe
+    local targetChar = targetPlayer.Character
+    if targetChar then
+        pcall(function()
+            local targetShirt = targetChar:FindFirstChildOfClass("Shirt")
+            local targetPants = targetChar:FindFirstChildOfClass("Pants")
+            local targetBodyColors = targetChar:FindFirstChildOfClass("BodyColors")
+
+            local myShirt = char:FindFirstChildOfClass("Shirt") or Instance.new("Shirt", char)
+            local myPants = char:FindFirstChildOfClass("Pants") or Instance.new("Pants", char)
+
+            if targetShirt then myShirt.ShirtTemplate = targetShirt.ShirtTemplate end
+            if targetPants then myPants.PantsTemplate = targetPants.PantsTemplate end
+            if targetBodyColors then
+                local myBC = char:FindFirstChildOfClass("BodyColors") or Instance.new("BodyColors", char)
+                myBC.HeadColor3 = targetBodyColors.HeadColor3
+                myBC.TorsoColor3 = targetBodyColors.TorsoColor3
+                myBC.LeftArmColor3 = targetBodyColors.LeftArmColor3
+                myBC.RightArmColor3 = targetBodyColors.RightArmColor3
+                myBC.LeftLegColor3 = targetBodyColors.LeftLegColor3
+                myBC.RightLegColor3 = targetBodyColors.RightLegColor3
+            end
+        end)
+        return true, "Roupas clonadas diretamente de @" .. targetPlayer.Name
+    end
+
+    return false, "Falha ao obter dados do personagem"
+end
+
+-- 3. Aplicar Skin por User ID ou Outfit ID
+function SkinEngine.ApplyByUserId(userId)
+    local numId = tonumber(userId)
+    if not numId then return false, "ID inválido" end
+    
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return false, "Humanoid não encontrado" end
+
+    if not HubState.Skin.OriginalDesc then
+        pcall(function()
+            HubState.Skin.OriginalDesc = hum:GetAppliedDescription()
+        end)
+    end
+
+    -- Tentativa de disparo em remotas do servidor
+    SkinEngine.ScanAndFireRemote(numId, nil)
+
+    local success, desc = pcall(function()
+        return Players:GetHumanoidDescriptionFromUserId(numId)
+    end)
+    if success and desc then
+        pcall(function()
+            hum:ApplyDescription(desc)
+        end)
+        return true, "Skin aplicada para o ID: " .. tostring(numId)
+    else
+        return false, "Não foi possível carregar o ID do avatar"
+    end
+end
+
+-- 4. Headless Horseman (Cabeça Invisível)
+function SkinEngine.ToggleHeadless(enabled)
+    HubState.Skin.HeadlessActive = enabled
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = enabled and 1 or 0
+        local face = head:FindFirstChildOfClass("Decal")
+        if face then face.Transparency = enabled and 1 or 0 end
+        for _, child in ipairs(head:GetChildren()) do
+            if child:IsA("SpecialMesh") then
+                if enabled then
+                    child.Scale = Vector3.new(0.001, 0.001, 0.001)
+                else
+                    child.Scale = Vector3.new(1.25, 1.25, 1.25)
+                end
+            end
+        end
+    end
+end
+
+-- 5. Korblox Deathspeaker (Perna Direita Korblox)
+function SkinEngine.ToggleKorblox(enabled)
+    HubState.Skin.KorbloxActive = enabled
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local rLeg = char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg")
+    local rLower = char:FindFirstChild("RightLowerLeg")
+    local rFoot = char:FindFirstChild("RightFoot")
+
+    if enabled then
+        if rLeg and rLeg:IsA("BasePart") then rLeg.Transparency = 1 end
+        if rLower and rLower:IsA("BasePart") then rLower.Transparency = 1 end
+        if rFoot and rFoot:IsA("BasePart") then rFoot.Transparency = 1 end
+
+        -- Criar Mesh da Perna do Korblox Deathspeaker
+        local attachPart = char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg") or char:FindFirstChild("HumanoidRootPart")
+        if attachPart and not char:FindFirstChild("KorbloxLegMesh") then
+            local korbloxLeg = Instance.new("Part")
+            korbloxLeg.Name = "KorbloxLegMesh"
+            korbloxLeg.CanCollide = false
+            korbloxLeg.Massless = true
+            korbloxLeg.CFrame = attachPart.CFrame
+            korbloxLeg.Parent = char
+
+            local specialMesh = Instance.new("SpecialMesh", korbloxLeg)
+            specialMesh.MeshId = "rbxassetid://902942093"
+            specialMesh.TextureId = "rbxassetid://902843398"
+            specialMesh.Scale = Vector3.new(1, 1, 1)
+
+            local weld = Instance.new("WeldConstraint", korbloxLeg)
+            weld.Part0 = korbloxLeg
+            weld.Part1 = attachPart
+        end
+    else
+        if rLeg and rLeg:IsA("BasePart") then rLeg.Transparency = 0 end
+        if rLower and rLower:IsA("BasePart") then rLower.Transparency = 0 end
+        if rFoot and rFoot:IsA("BasePart") then rFoot.Transparency = 0 end
+
+        local existing = char:FindFirstChild("KorbloxLegMesh")
+        if existing then existing:Destroy() end
+    end
+end
+
+-- 6. Resetar para Avatar Original
+function SkinEngine.ResetAvatar()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum and HubState.Skin.OriginalDesc then
+        pcall(function()
+            hum:ApplyDescription(HubState.Skin.OriginalDesc)
+        end)
+    end
+    SkinEngine.ToggleHeadless(false)
+    SkinEngine.ToggleKorblox(false)
+end
+
+-- 7. Hat Reanimation Rig (Replicação de Física Netless FE)
+local HatReanimActive = false
+function SkinEngine.ToggleHatReanim(enabled)
+    HatReanimActive = enabled
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    if not enabled then
+        DropLoop("HatReanim_Physics")
+        return
+    end
+
+    -- Configuração de física com network ownership para chapéus
+    pcall(function()
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        RegisterLoop("HatReanim_Physics", RunService.Heartbeat:Connect(function()
+            if not HatReanimActive or not char or not char.Parent then
+                DropLoop("HatReanim_Physics")
+                return
+            end
+            for _, acc in ipairs(char:GetChildren()) do
+                if acc:IsA("Accessory") then
+                    local handle = acc:FindFirstChild("Handle")
+                    if handle and handle:IsA("BasePart") then
+                        handle.CanCollide = false
+                        -- Manter autoridade de velocidade para replicação de rede contínua
+                        pcall(function()
+                            handle.Velocity = Vector3.new(0, 25, 0)
+                        end)
+                    end
+                end
+            end
+        end))
+    end)
+end
+
 local CombatEngine = {}
 
 local function RaycastCheck(part, targetChar)
@@ -1206,7 +1540,7 @@ end))
 -- FRONT-END PREMIUM ORIGINAL INTACTO (SIDEBAR, WAIFU, SLIDERS, DRAGGABLE)
 -- ====================================================================
 -- Limpeza segura de instâncias anteriores em todos os containers
-local oldNames = {"GoHub_V11_Final", "WaifuHub_V10_Definitive", "WaifuHub_V8_Definitive", "WaifuHub_V8", "WaifuHub"}
+local oldNames = {"GoHub_V12_Definitive", "WaifuHub_V10_Definitive", "WaifuHub_V8_Definitive", "WaifuHub_V8", "WaifuHub"}
 for _, oldName in ipairs(oldNames) do
     pcall(function() if GuiRoot and GuiRoot:FindFirstChild(oldName) then GuiRoot[oldName]:Destroy() end end)
     pcall(function() if game:GetService("CoreGui"):FindFirstChild(oldName) then game:GetService("CoreGui")[oldName]:Destroy() end end)
@@ -1214,7 +1548,7 @@ for _, oldName in ipairs(oldNames) do
 end
 
 local MainScreen = Instance.new("ScreenGui")
-MainScreen.Name = "GoHub_V11_Final"
+MainScreen.Name = "GoHub_V12_Definitive"
 MainScreen.ResetOnSpawn = false
 MainScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
@@ -1465,6 +1799,259 @@ BadgeClick.MouseButton1Click:Connect(function()
     SetWindowMinimized(false)
 end)
 
+-- ====================================================================
+-- RADIAL EMOTE WHEEL MENU (ROBLOX NATIVE CIRCULAR WHEEL — TECLA 'C')
+-- ====================================================================
+local RadialBackdrop = Instance.new("Frame")
+RadialBackdrop.Name = "GoHubRadialBackdrop"
+RadialBackdrop.Size = UDim2.new(1, 0, 1, 0)
+RadialBackdrop.Position = UDim2.new(0, 0, 0, 0)
+RadialBackdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+RadialBackdrop.BackgroundTransparency = 1
+RadialBackdrop.Visible = false
+RadialBackdrop.ZIndex = 200
+RadialBackdrop.Parent = MainScreen
+
+local RadialWheel = Instance.new("Frame")
+RadialWheel.Name = "RadialWheel"
+RadialWheel.Size = UDim2.new(0, 0, 0, 0)
+RadialWheel.Position = UDim2.new(0.5, 0, 0.5, 0)
+RadialWheel.AnchorPoint = Vector2.new(0.5, 0.5)
+RadialWheel.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+RadialWheel.BackgroundTransparency = 0.15
+RadialWheel.BorderSizePixel = 0
+RadialWheel.ZIndex = 201
+RadialWheel.Parent = RadialBackdrop
+
+Instance.new("UICorner", RadialWheel).CornerRadius = UDim.new(1, 0)
+local WheelStroke = Instance.new("UIStroke", RadialWheel)
+WheelStroke.Color = HubState.Theme.AccentGlow
+WheelStroke.Thickness = 2.5
+WheelStroke.Transparency = 0.2
+
+-- Linhas Divisórias dos 8 Setores
+for i = 1, 8 do
+    local angleDeg = (i - 1) * 45
+    local divider = Instance.new("Frame")
+    divider.Name = "Div_" .. i
+    divider.Size = UDim2.new(0, 1, 0.5, -35)
+    divider.AnchorPoint = Vector2.new(0.5, 1)
+    divider.Position = UDim2.new(0.5, 0, 0.5, 0)
+    divider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    divider.BackgroundTransparency = 0.65
+    divider.BorderSizePixel = 0
+    divider.Rotation = angleDeg
+    divider.ZIndex = 202
+    divider.Parent = RadialWheel
+end
+
+-- Centro Escuro do Menu Circular (Hub central)
+local CenterCircle = Instance.new("Frame")
+CenterCircle.Name = "CenterCircle"
+CenterCircle.Size = UDim2.new(0, 120, 0, 120)
+CenterCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+CenterCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+CenterCircle.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+CenterCircle.BackgroundTransparency = 0.05
+CenterCircle.BorderSizePixel = 0
+CenterCircle.ZIndex = 203
+CenterCircle.Parent = RadialWheel
+
+Instance.new("UICorner", CenterCircle).CornerRadius = UDim.new(1, 0)
+local CenterStroke = Instance.new("UIStroke", CenterCircle)
+CenterStroke.Color = HubState.Theme.Accent
+CenterStroke.Thickness = 1.8
+
+local CenterLogo = Instance.new("ImageLabel")
+CenterLogo.Size = UDim2.new(0, 36, 0, 36)
+CenterLogo.AnchorPoint = Vector2.new(0.5, 0.5)
+CenterLogo.Position = UDim2.new(0.5, 0, 0.32, 0)
+CenterLogo.BackgroundColor3 = HubState.Theme.Card
+CenterLogo.Image = HubState.Assets.WaifuImageId
+CenterLogo.ScaleType = Enum.ScaleType.Fit
+CenterLogo.ZIndex = 204
+CenterLogo.Parent = CenterCircle
+Instance.new("UICorner", CenterLogo).CornerRadius = UDim.new(1, 0)
+
+local CenterTitle = Instance.new("TextLabel")
+CenterTitle.Size = UDim2.new(1, -10, 0, 16)
+CenterTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+CenterTitle.Position = UDim2.new(0.5, 0, 0.58, 0)
+CenterTitle.BackgroundTransparency = 1
+CenterTitle.Font = Enum.Font.GothamBold
+CenterTitle.Text = "GOHUB EMOTES"
+CenterTitle.TextColor3 = HubState.Theme.AccentGlow
+CenterTitle.TextSize = 10
+CenterTitle.ZIndex = 204
+CenterTitle.Parent = CenterCircle
+
+local CenterInfo = Instance.new("TextLabel")
+CenterInfo.Size = UDim2.new(1, -12, 0, 24)
+CenterInfo.AnchorPoint = Vector2.new(0.5, 0.5)
+CenterInfo.Position = UDim2.new(0.5, 0, 0.78, 0)
+CenterInfo.BackgroundTransparency = 1
+CenterInfo.Font = Enum.Font.Gotham
+CenterInfo.Text = "[C] Fechar  •  [X] Parar"
+CenterInfo.TextColor3 = HubState.Theme.TextDim
+CenterInfo.TextSize = 9
+CenterInfo.ZIndex = 204
+CenterInfo.Parent = CenterCircle
+
+-- Container das 8 fatias de dança
+local SlotsContainer = Instance.new("Folder", RadialWheel)
+SlotsContainer.Name = "SlotsContainer"
+
+local SlotButtons = {}
+local CurrentRadialEmotes = {}
+
+local function BuildRadialSlots()
+    SlotsContainer:ClearAllChildren()
+    table.clear(SlotButtons)
+    CurrentRadialEmotes = AnimationEngine.GetRadialEmotes()
+
+    local radius = 110 -- Raio para centralizar os itens de texto/número
+    for i = 1, 8 do
+        local emoteData = CurrentRadialEmotes[i]
+        local angleDeg = (i - 1) * 45 - 90 -- Slot 1 no topo (-90°), horário
+        local angleRad = math.rad(angleDeg)
+        local cosA, sinA = math.cos(angleRad), math.sin(angleRad)
+
+        local slotBtn = Instance.new("TextButton")
+        slotBtn.Name = "Slot_" .. i
+        slotBtn.Size = UDim2.new(0, 84, 0, 48)
+        slotBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+        slotBtn.Position = UDim2.new(0.5, cosA * radius, 0.5, sinA * radius)
+        slotBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+        slotBtn.BackgroundTransparency = 0.4
+        slotBtn.Text = ""
+        slotBtn.AutoButtonColor = false
+        slotBtn.ZIndex = 205
+        slotBtn.Parent = SlotsContainer
+
+        Instance.new("UICorner", slotBtn).CornerRadius = UDim.new(0, 8)
+        local slotStroke = Instance.new("UIStroke", slotBtn)
+        slotStroke.Color = Color3.fromRGB(60, 60, 80)
+        slotStroke.Thickness = 1
+
+        local numBadge = Instance.new("TextLabel")
+        numBadge.Size = UDim2.new(0, 18, 0, 18)
+        numBadge.Position = UDim2.new(0, 4, 0, 4)
+        numBadge.BackgroundColor3 = HubState.Theme.Accent
+        numBadge.Font = Enum.Font.GothamBold
+        numBadge.Text = tostring(i)
+        numBadge.TextColor3 = Color3.fromRGB(255, 255, 255)
+        numBadge.TextSize = 10
+        numBadge.ZIndex = 206
+        numBadge.Parent = slotBtn
+        Instance.new("UICorner", numBadge).CornerRadius = UDim.new(1, 0)
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -24, 1, -8)
+        label.Position = UDim2.new(0, 22, 0, 4)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.GothamSemibold
+        label.Text = emoteData and emoteData.Name or "(Vazio)"
+        label.TextColor3 = emoteData and HubState.Theme.Text or HubState.Theme.TextDim
+        label.TextSize = 10
+        label.TextWrapped = true
+        label.TextTruncate = Enum.TextTruncate.AtEnd
+        label.ZIndex = 206
+        label.Parent = slotBtn
+
+        slotBtn.MouseEnter:Connect(function()
+            TweenService:Create(slotBtn, TweenInfo.new(0.18), { BackgroundColor3 = HubState.Theme.Accent, BackgroundTransparency = 0.1 }):Play()
+            TweenService:Create(slotStroke, TweenInfo.new(0.18), { Color = Color3.fromRGB(255, 255, 255) }):Play()
+            TweenService:Create(label, TweenInfo.new(0.18), { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+        end)
+
+        slotBtn.MouseLeave:Connect(function()
+            TweenService:Create(slotBtn, TweenInfo.new(0.18), { BackgroundColor3 = Color3.fromRGB(22, 22, 32), BackgroundTransparency = 0.4 }):Play()
+            TweenService:Create(slotStroke, TweenInfo.new(0.18), { Color = Color3.fromRGB(60, 60, 80) }):Play()
+            TweenService:Create(label, TweenInfo.new(0.18), { TextColor3 = emoteData and HubState.Theme.Text or HubState.Theme.TextDim }):Play()
+        end)
+
+        slotBtn.MouseButton1Click:Connect(function()
+            if emoteData and emoteData.ID then
+                AnimationEngine.PlayRaw(emoteData.ID, emoteData.Name)
+            end
+            ToggleRadialMenu(false)
+        end)
+
+        SlotButtons[i] = { Button = slotBtn, Emote = emoteData }
+    end
+end
+
+local function ToggleRadialMenu(forceState)
+    local state = (forceState ~= nil) and forceState or not HubState.Radial.Visible
+    HubState.Radial.Visible = state
+
+    if state then
+        BuildRadialSlots()
+        RadialBackdrop.Visible = true
+        RadialWheel.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(RadialBackdrop, TweenInfo.new(0.22), { BackgroundTransparency = 0.4 }):Play()
+        TweenService:Create(RadialWheel, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 350, 0, 350)
+        }):Play()
+    else
+        TweenService:Create(RadialBackdrop, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
+        local closeTween = TweenService:Create(RadialWheel, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0)
+        })
+        closeTween:Play()
+        task.delay(0.22, function()
+            if not HubState.Radial.Visible then
+                RadialBackdrop.Visible = false
+            end
+        end)
+    end
+end
+
+-- Fechar ao clicar fora da roda circular
+RadialBackdrop.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local mousePos = Vector2.new(input.Position.X, input.Position.Y)
+        local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        local dist = (mousePos - centerPos).Magnitude
+        if dist > 175 then
+            ToggleRadialMenu(false)
+        end
+    end
+end)
+
+-- Hotkey Global: Tecla 'C' para Menu Circular, Tecla 'X' para Parar Dança
+RegisterLoop("UI_Radial_Dance_Hotkeys", UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.C then
+        ToggleRadialMenu()
+    elseif input.KeyCode == Enum.KeyCode.X then
+        AnimationEngine.Stop()
+    end
+end))
+
+-- Atalhos de teclado numérico (1 a 8) quando o menu circular estiver aberto
+RegisterLoop("UI_Radial_Number_Hotkeys", UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe or not HubState.Radial.Visible then return end
+    local numKeys = {
+        [Enum.KeyCode.One] = 1, [Enum.KeyCode.KeypadOne] = 1,
+        [Enum.KeyCode.Two] = 2, [Enum.KeyCode.KeypadTwo] = 2,
+        [Enum.KeyCode.Three] = 3, [Enum.KeyCode.KeypadThree] = 3,
+        [Enum.KeyCode.Four] = 4, [Enum.KeyCode.KeypadFour] = 4,
+        [Enum.KeyCode.Five] = 5, [Enum.KeyCode.KeypadFive] = 5,
+        [Enum.KeyCode.Six] = 6, [Enum.KeyCode.KeypadSix] = 6,
+        [Enum.KeyCode.Seven] = 7, [Enum.KeyCode.KeypadSeven] = 7,
+        [Enum.KeyCode.Eight] = 8, [Enum.KeyCode.KeypadEight] = 8
+    }
+    local slotNum = numKeys[input.KeyCode]
+    if slotNum and CurrentRadialEmotes[slotNum] then
+        local em = CurrentRadialEmotes[slotNum]
+        if em and em.ID then
+            AnimationEngine.PlayRaw(em.ID, em.Name)
+        end
+        ToggleRadialMenu(false)
+    end
+end))
+
 -- Atalho de teclado para Minimizar/Restaurar (RightControl ou LeftAlt)
 RegisterLoop("UI_Minimize_Hotkey", UserInputService.InputBegan:Connect(function(input, gpe)
     if not gpe and (input.KeyCode == Enum.KeyCode.RightControl or input.KeyCode == Enum.KeyCode.LeftAlt) then
@@ -1502,6 +2089,7 @@ CloseButton.MouseButton1Click:Connect(function()
     MM2CoinFolder:Destroy()
     MM2HitboxFolder:Destroy()
     FloatingBadge:Destroy()
+    RadialBackdrop:Destroy()
     MainScreen:Destroy()
 end)
 
@@ -1545,7 +2133,7 @@ SubTitleLabel.Position = UDim2.new(0, 78, 0, 36)
 SubTitleLabel.Size = UDim2.new(0, 110, 0, 16)
 SubTitleLabel.BackgroundTransparency = 1
 SubTitleLabel.Font = Enum.Font.Gotham
-SubTitleLabel.Text = "DEFINITIVE V11"
+SubTitleLabel.Text = "DEFINITIVE V12"
 SubTitleLabel.TextColor3 = HubState.Theme.AccentGlow
 SubTitleLabel.TextSize = 11
 SubTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2066,6 +2654,33 @@ local function DispatchCommand(rawText)
         if danceName and danceId then
             AnimationEngine.SaveCustomDance(danceName, danceId)
         end
+    elseif cmd == "c" or cmd == "radial" or cmd == "emotes" or cmd == "wheel" then
+        ToggleRadialMenu()
+    elseif cmd == "x" or cmd == "stopdance" or cmd == "stop" then
+        AnimationEngine.Stop()
+    elseif cmd == "copy" or cmd == "copyskin" then
+        local targetName = args[1]
+        if targetName then
+            local targets = TargetParser.FindPlayers(targetName)
+            if #targets > 0 then
+                SkinEngine.ClonePlayerSkin(targets[1])
+            end
+        end
+    elseif cmd == "skin" or cmd == "morph" then
+        local targetId = args[1]
+        if targetId then
+            SkinEngine.ApplyByUserId(targetId)
+        end
+    elseif cmd == "headless" then
+        SkinEngine.ToggleHeadless(true)
+    elseif cmd == "unheadless" then
+        SkinEngine.ToggleHeadless(false)
+    elseif cmd == "korblox" then
+        SkinEngine.ToggleKorblox(true)
+    elseif cmd == "unkorblox" then
+        SkinEngine.ToggleKorblox(false)
+    elseif cmd == "unskin" or cmd == "resetskin" then
+        SkinEngine.ResetAvatar()
     elseif cmd == "min" or cmd == "minimize" then
         SetWindowMinimized(true)
     elseif cmd == "max" or cmd == "maximize" or cmd == "restore" then
@@ -2451,7 +3066,84 @@ for _, cat in ipairs(EmoteCategories) do
     end
 end
 
--- 7. UTILIDADES DO PERSONAGEM
+-- 7. SKINS & MORPHS (V12 REPLICAÇÃO FE, CLONADOR, REMOTAS & ITENS LENDÁRIOS)
+local skinPage = CreatePage("Skins")
+
+AddSection(skinPage, "Replicação Global (Everyone Sees)")
+local scanStatusLabel = Instance.new("TextLabel")
+scanStatusLabel.Size = UDim2.new(1, 0, 0, 20)
+scanStatusLabel.BackgroundTransparency = 1
+scanStatusLabel.Font = Enum.Font.Gotham
+scanStatusLabel.Text = "Status de Replicação: Pronto para verificar remotas"
+scanStatusLabel.TextColor3 = HubState.Theme.AccentGlow
+scanStatusLabel.TextSize = 11
+scanStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+scanStatusLabel.Parent = skinPage
+
+AddButton(skinPage, "🔍 Escanear & Forçar Remotes de Avatar do Servidor", function()
+    local ok = SkinEngine.ScanAndFireRemote(LocalPlayer.UserId, nil)
+    if ok then
+        scanStatusLabel.Text = "Status: Remotas encontradas e disparadas com sucesso!"
+        scanStatusLabel.TextColor3 = HubState.Theme.Success
+    else
+        scanStatusLabel.Text = "Status: Nenhuma remota vulnerável aberta neste jogo"
+        scanStatusLabel.TextColor3 = HubState.Theme.Close
+    end
+end)
+
+AddToggle(skinPage, "FE Hat Reanimation Rig (Replicação Física Netless)", false, function(s)
+    SkinEngine.ToggleHatReanim(s)
+end)
+
+AddSection(skinPage, "Clonador Rápido de Jogadores")
+local copyStatusLabel = Instance.new("TextLabel")
+copyStatusLabel.Size = UDim2.new(1, 0, 0, 20)
+copyStatusLabel.BackgroundTransparency = 1
+copyStatusLabel.Font = Enum.Font.Gotham
+copyStatusLabel.Text = "Alvo: Selecione um jogador na aba 'Jogadores'"
+copyStatusLabel.TextColor3 = HubState.Theme.TextDim
+copyStatusLabel.TextSize = 11
+copyStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+copyStatusLabel.Parent = skinPage
+
+AddButton(skinPage, "🎭 Clonar Skin do Jogador Selecionado", function()
+    if selectedPlayer then
+        local ok, msg = SkinEngine.ClonePlayerSkin(selectedPlayer)
+        copyStatusLabel.Text = "Resultado: " .. tostring(msg)
+        copyStatusLabel.TextColor3 = ok and HubState.Theme.Success or HubState.Theme.Close
+    else
+        copyStatusLabel.Text = "Aviso: Selecione um player na aba Jogadores primeiro!"
+        copyStatusLabel.TextColor3 = HubState.Theme.Close
+    end
+end)
+
+AddSection(skinPage, "Aplicar Avatar por User ID")
+local skinIdInput = AddInput(skinPage, "User ID da Conta (ex: 261, 1, 48316149)", "")
+AddButton(skinPage, "⚡ Aplicar Skin por User ID", function()
+    local id = skinIdInput.Text
+    if id and id ~= "" then
+        local ok, msg = SkinEngine.ApplyByUserId(id)
+        scanStatusLabel.Text = tostring(msg)
+        scanStatusLabel.TextColor3 = ok and HubState.Theme.Success or HubState.Theme.Close
+    end
+end)
+
+AddSection(skinPage, "Pacotes & Itens Lendários Gratuitos")
+AddToggle(skinPage, "Headless Horseman (Cabeça Invisível)", false, function(s)
+    SkinEngine.ToggleHeadless(s)
+end)
+AddToggle(skinPage, "Korblox Deathspeaker (Perna de Esqueleto)", false, function(s)
+    SkinEngine.ToggleKorblox(s)
+end)
+
+AddSection(skinPage, "Restauração de Aparência")
+AddButton(skinPage, "🔄 Restaurar Avatar Original", function()
+    SkinEngine.ResetAvatar()
+    scanStatusLabel.Text = "Status: Avatar original restaurado!"
+    scanStatusLabel.TextColor3 = HubState.Theme.Text
+end)
+
+-- 8. UTILIDADES DO PERSONAGEM
 local charPage = CreatePage("Personagem")
 AddSection(charPage, "Física do Personagem")
 AddToggle(charPage, "Anti-Sit (Impedir de Sentar)", false, function(s) CharEngine.ToggleAntiSit(s) end)
@@ -2463,7 +3155,7 @@ end)
 AddSection(charPage, "Ciclo de Vida")
 AddButton(charPage, "Respawn Instantâneo (Reset)", function() DispatchCommand("respawn") end)
 
--- 8. COMANDOS & AJUDA
+-- 9. COMANDOS & AJUDA
 local cmdHelpPage = CreatePage("Comandos")
 AddSection(cmdHelpPage, "Barra de Comandos Rápida")
 AddButton(cmdHelpPage, "Abrir / Fechar Command Bar (Atalho: ';')", function() ToggleCmdBar() end)
@@ -2484,9 +3176,15 @@ helpText.Text = [[
 • fling [alvo] / loopfling [alvo] — Fling instantâneo ou contínuo
 • antifling / unantifling — Imunidade contra flings de terceiros
 • fullbright / nofog — Modifica a iluminação do mapa
-• dance [nome/id] / stopdance — Executa danças do catálogo ou custom
+• c / radial — Abre/Fecha o menu circular de danças (Atalho: 'C')
+• x / stopdance — Para qualquer dança instantaneamente (Atalho: 'X')
+• dance [nome/id] — Executa danças do catálogo ou custom
 • savedance [nome] [id] — Salva uma nova dança customizada
 • animspeed [num] — Ajusta a velocidade da dança em tempo real
+• copy [alvo] — Clona a skin completa do jogador
+• skin [userId] / unskin — Aplica skin por ID de conta ou restaura
+• headless / unheadless — Ativa/Desativa cabeça invisível
+• korblox / unkorblox — Ativa/Desativa perna do Korblox
 • min / max — Minimiza ou restaura o GoHub (Atalho: RightControl)
 • antisit / spin / unspin — Controles de física do personagem
 • rejoin / serverhop — Controles de reconexão de servidor
@@ -2500,12 +3198,13 @@ helpText.Parent = cmdHelpPage
 -- Criar Botões das Abas na Sidebar
 CreateTab("Universal", "⚡", 1)
 CreateTab("Jogadores", "👤", 2)
-CreateTab("Waypoints", "📍", 3)
-CreateTab("MM2", "🔪", 4)
-CreateTab("Visuais", "👁", 5)
-CreateTab("Danças", "💃", 6)
-CreateTab("Personagem", "🛡", 7)
-CreateTab("Comandos", "⌨", 8)
+CreateTab("Skins", "🎭", 3)
+CreateTab("Waypoints", "📍", 4)
+CreateTab("MM2", "🔪", 5)
+CreateTab("Visuais", "👁", 6)
+CreateTab("Danças", "💃", 7)
+CreateTab("Personagem", "🛡", 8)
+CreateTab("Comandos", "⌨", 9)
 
 -- Ativar Página Padrão
 Pages["Universal"].Visible = true
@@ -2516,4 +3215,4 @@ if defaultTabBtn then
     defaultTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
-print("GoHub V11 Final Loaded Cleanly!")
+print("GoHub V12 Definitive Loaded Cleanly!")
