@@ -17,3 +17,6 @@ inspect_*.py
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Agentic teamwork metadata
+.agents/
