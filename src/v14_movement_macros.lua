@@ -884,6 +884,18 @@ function MovementEngine.ReleaseGrapple(hookIndex)
     destroyHookInstances(hook)
 end
 
+function MovementEngine.CancelGrapple(hookIndex)
+    if hookIndex then
+        MovementEngine.ReleaseGrapple(hookIndex)
+    else
+        for i = 1, #GrappleState.Hooks do
+            if GrappleState.Hooks[i] and GrappleState.Hooks[i].Active then
+                MovementEngine.ReleaseGrapple(i)
+            end
+        end
+    end
+end
+
 function MovementEngine.SetGrappleReeling(isReeling)
     GrappleState.IsReeling = isReeling
 end
@@ -1093,6 +1105,26 @@ function MovementEngine.ReleaseSuperJump()
     HubState.Movement.super_jump_charged = false
 end
 
+function MovementEngine.SetSuperJump(enabled)
+    HubState.Movement.SuperJumpActive = (enabled == true)
+    if HubState.DropLoop then HubState.DropLoop("GoHub_SuperJumpAuto") end
+    if enabled and UserInputService then
+        local conn = UserInputService.JumpRequest:Connect(function()
+            local char, hrp, hum = getCharacterEntities()
+            if hrp and hum and hum:GetState() ~= Enum.HumanoidStateType.Freefall then
+                hrp.AssemblyLinearVelocity = Vector3.new(
+                    hrp.AssemblyLinearVelocity.X,
+                    hrp.AssemblyLinearVelocity.Y + 65.0,
+                    hrp.AssemblyLinearVelocity.Z
+                )
+            end
+        end)
+        if HubState.RegisterLoop then
+            HubState.RegisterLoop("GoHub_SuperJumpAuto", conn)
+        end
+    end
+end
+
 -- ------------------------------------------------------------------------------
 -- F23: V13 MOVEMENT PRESERVATION (FLIGHT, SPEED, NOCLIP, INF JUMP, CLICK TP)
 -- ------------------------------------------------------------------------------
@@ -1139,6 +1171,11 @@ function MovementEngine.SetFlight(enabled)
         bgInstance.CFrame = cam.CFrame
 
         local moveDir = Vector3.new(0, 0, 0)
+        local _, _, flyHum = getCharacterEntities()
+        if flyHum and flyHum.MoveDirection.Magnitude > 0.05 then
+            moveDir = moveDir + cam.CFrame:VectorToWorldSpace(Vector3.new(flyHum.MoveDirection.X, 0, flyHum.MoveDirection.Z))
+        end
+
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end

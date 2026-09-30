@@ -387,17 +387,21 @@ function Polyfills.FireTouchInterest(part, touchWithPart, toggle)
         end
     end
 
-    -- Fallback: Character micro-nudge simulation
+    -- Fallback: Character micro-nudge simulation (non-yielding via task.spawn)
     local okNudge, err = pcall(function()
         if not part:IsA("BasePart") or not touchWithPart:IsA("BasePart") then return end
         if toggle == 0 or toggle == true then
-            local prevCF = touchWithPart.CFrame
-            local targetCF = part.CFrame
-            touchWithPart.CFrame = targetCF
-            if RunService then
-                RunService.Heartbeat:Wait()
-            end
-            touchWithPart.CFrame = prevCF
+            task.spawn(function()
+                local prevCF = touchWithPart.CFrame
+                local targetCF = part.CFrame
+                touchWithPart.CFrame = targetCF
+                if RunService then
+                    RunService.Heartbeat:Wait()
+                end
+                if touchWithPart and touchWithPart.Parent then
+                    touchWithPart.CFrame = prevCF
+                end
+            end)
         end
     end)
     return okNudge, err
@@ -2039,7 +2043,26 @@ GoHubV14Core.FlagSanitizer = FlagSanitizer
 _G.GoHubV14Core = GoHubV14Core
 shared.GoHubV14Core = GoHubV14Core
 
+-- Global and shared exports for cross-module zero-alloc access
+rawset(_G, "HighlightPool", HighlightPool)
+rawset(shared, "HighlightPool", HighlightPool)
+rawset(_G, "GoHubV14State", HubState)
+rawset(shared, "GoHubV14State", HubState)
+
 -- [Module Return] return GoHubV14Core
+end
+
+-- Synchronize file-scope HubState with V14 Core & Highlight Pool
+if rawget(_G, "HighlightPool") then
+    HubState.AcquireHighlight = _G.HighlightPool.AcquireHighlight
+    HubState.ReleaseHighlight = _G.HighlightPool.ReleaseHighlight
+end
+if rawget(_G, "GoHubV14State") and type(_G.GoHubV14State) == "table" then
+    for k, v in pairs(_G.GoHubV14State) do
+        if HubState[k] == nil then
+            HubState[k] = v
+        end
+    end
 end
 
 -- 2. AUDIO & MUSIC ENGINE 2.0 (Milestone 2 - R1 PRIORITIZED)
@@ -2222,13 +2245,14 @@ local MusicPlayer = {
     }
 }
 
--- Resolve or create Sound parent container (Camera or SoundService for 100% audible 2D playback)
+-- Resolve or create Sound parent container (SoundService or Camera/Workspace for 100% audible 2D playback)
 local function getAudioContainer()
     if MusicPlayer.Container and MusicPlayer.Container.Parent then
         return MusicPlayer.Container
     end
 
-    local parent = (Workspace and Workspace.CurrentCamera) or SoundService or Workspace
+    -- SoundService is persistent across respawns and plays 100% 2D non-spatial audio
+    local parent = SoundService or (Workspace and Workspace.CurrentCamera) or Workspace
     local folder = parent:FindFirstChild("GoHubV14_AudioContainer")
     if not folder then
         folder = Instance.new("Folder")
@@ -2523,10 +2547,10 @@ function AudioEngine.PlayTrack(trackIdOrIndex, customVol, customSpeed)
 
     -- Prepare crossfade: existing active sound becomes fading sound
     local oldSound = MusicPlayer.ActiveSound
-    if oldSound and oldSound.IsPlaying then
-        MusicPlayer.FadingSound = oldSound
+    if oldSound then
+        if oldSound.IsPlaying and TweenService then
+            MusicPlayer.FadingSound = oldSound
 
-        if TweenService then
             local fadeTween = TweenService:Create(oldSound, TweenInfo.new(tau, Enum.EasingStyle.Linear), { Volume = 0 })
             fadeTween:Play()
             fadeTween.Completed:Connect(function()
@@ -3072,8 +3096,20 @@ local function spawnShockwaveRing(rootPos, hipHeight, color)
     end
 end
 
+AudioEngine.ShockwavesEnabled = false
+
+function AudioEngine.SetShockwavesEnabled(enabled)
+    AudioEngine.ShockwavesEnabled = (enabled == true)
+end
+
+function AudioEngine.ToggleShockwaves(enabled)
+    AudioEngine.SetShockwavesEnabled(enabled)
+end
+
 -- Hook beat drop event to shockwave trigger
 AudioEngine.OnBeatDrop:Connect(function(loudness)
+    if not AudioEngine.ShockwavesEnabled then return end
+
     local hrp, char = getLocalRootPart()
     if not hrp then return end
 
@@ -3496,10 +3532,14 @@ function AudioEngine.Teardown()
 end
 
 -- ------------------------------------------------------------------------------
--- 15. GLOBAL EXPORTS
+-- 15. METHOD ALIASES & GLOBAL EXPORTS
 -- ------------------------------------------------------------------------------
-_G.GoHubV14Audio = AudioEngine
-shared.GoHubV14Audio = AudioEngine
+AudioEngine.ApplyDSPPreset = AudioEngine.SetEqualizerProfile
+AudioEngine.ToggleVisualizer3D = AudioEngine.SetVisualizer3DEnabled
+AudioEngine.ToggleEqualizerHUD = AudioEngine.SetEqualizerHUDEnabled
+
+rawset(_G, "GoHubV14Audio", AudioEngine)
+rawset(shared, "GoHubV14Audio", AudioEngine)
 
 -- [Module Return] return AudioEngine
 end
@@ -5698,22 +5738,21 @@ local ExportedModule = {
     ShaderPresets = ShaderPresets
 }
 
--- Bind sub-tables onto LightingEngine for direct call compatibility
+-- Bind sub-tables and aliases onto LightingEngine for direct call compatibility
 LightingEngine.BuildVisualsTab = BuildVisualsTab
 LightingEngine.DispatchCommand = DispatchShaderCommand
+LightingEngine.SetCameraMotes = LightingEngine.SetParticleMotesEnabled
 
 -- Global exports
+rawset(_G, "GoHubV14Lighting", LightingEngine)
+rawset(shared, "GoHubV14Lighting", LightingEngine)
+rawset(_G, "GoHub_ShaderEngine", ExportedModule)
+rawset(shared, "GoHub_ShaderEngine", ExportedModule)
 if getgenv then
-    getgenv().GoHubV14Lighting = LightingEngine
-    getgenv().GoHub_ShaderEngine = ExportedModule
-else
-    _G.GoHubV14Lighting = LightingEngine
-    _G.GoHub_ShaderEngine = ExportedModule
-end
-
-if shared then
-    shared.GoHubV14Lighting = LightingEngine
-    shared.GoHub_ShaderEngine = ExportedModule
+    pcall(function()
+        getgenv().GoHubV14Lighting = LightingEngine
+        getgenv().GoHub_ShaderEngine = ExportedModule
+    end)
 end
 
 -- [Module Return] return LightingEngine
@@ -6607,6 +6646,18 @@ function MovementEngine.ReleaseGrapple(hookIndex)
     destroyHookInstances(hook)
 end
 
+function MovementEngine.CancelGrapple(hookIndex)
+    if hookIndex then
+        MovementEngine.ReleaseGrapple(hookIndex)
+    else
+        for i = 1, #GrappleState.Hooks do
+            if GrappleState.Hooks[i] and GrappleState.Hooks[i].Active then
+                MovementEngine.ReleaseGrapple(i)
+            end
+        end
+    end
+end
+
 function MovementEngine.SetGrappleReeling(isReeling)
     GrappleState.IsReeling = isReeling
 end
@@ -6816,6 +6867,26 @@ function MovementEngine.ReleaseSuperJump()
     HubState.Movement.super_jump_charged = false
 end
 
+function MovementEngine.SetSuperJump(enabled)
+    HubState.Movement.SuperJumpActive = (enabled == true)
+    if HubState.DropLoop then HubState.DropLoop("GoHub_SuperJumpAuto") end
+    if enabled and UserInputService then
+        local conn = UserInputService.JumpRequest:Connect(function()
+            local char, hrp, hum = getCharacterEntities()
+            if hrp and hum and hum:GetState() ~= Enum.HumanoidStateType.Freefall then
+                hrp.AssemblyLinearVelocity = Vector3.new(
+                    hrp.AssemblyLinearVelocity.X,
+                    hrp.AssemblyLinearVelocity.Y + 65.0,
+                    hrp.AssemblyLinearVelocity.Z
+                )
+            end
+        end)
+        if HubState.RegisterLoop then
+            HubState.RegisterLoop("GoHub_SuperJumpAuto", conn)
+        end
+    end
+end
+
 -- ------------------------------------------------------------------------------
 -- F23: V13 MOVEMENT PRESERVATION (FLIGHT, SPEED, NOCLIP, INF JUMP, CLICK TP)
 -- ------------------------------------------------------------------------------
@@ -6862,6 +6933,11 @@ function MovementEngine.SetFlight(enabled)
         bgInstance.CFrame = cam.CFrame
 
         local moveDir = Vector3.new(0, 0, 0)
+        local _, _, flyHum = getCharacterEntities()
+        if flyHum and flyHum.MoveDirection.Magnitude > 0.05 then
+            moveDir = moveDir + cam.CFrame:VectorToWorldSpace(Vector3.new(flyHum.MoveDirection.X, 0, flyHum.MoveDirection.Z))
+        end
+
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
@@ -7767,6 +7843,14 @@ function DockEngine.SetVisible(visible)
     end
 end
 
+function DockEngine.Toggle(visible)
+    if visible == nil then
+        DockEngine.SetVisible(not DockEngine.Visible)
+    else
+        DockEngine.SetVisible(visible == true)
+    end
+end
+
 function DockEngine.ToggleExpand()
     DockEngine.Expanded = not DockEngine.Expanded
     local targetW = DockEngine.Expanded and 270 or 44
@@ -7919,6 +8003,20 @@ function TelemetryEngine.GetMetrics()
     }
 end
 
+function TelemetryEngine.Toggle(visible)
+    if visible == nil then
+        TelemetryEngine.Active = not TelemetryEngine.Active
+    else
+        TelemetryEngine.Active = (visible == true)
+    end
+    if not TelemetryEngine.Container and TelemetryEngine.Active then
+        TelemetryEngine.Init()
+    end
+    if TelemetryEngine.Container then
+        TelemetryEngine.Container.Visible = TelemetryEngine.Active
+    end
+end
+
 -- ==============================================================================
 -- 3. ENGINE R5: DYNAMIC CROSSHAIR & HITMARKERS
 -- ==============================================================================
@@ -8018,6 +8116,20 @@ function CrosshairEngine.Update(dt)
         CrosshairEngine.Lines.Bottom.Position = UDim2.new(0, -1, 0, totalGap)
         CrosshairEngine.Lines.Left.Position = UDim2.new(0, -totalGap - 10, 0, -1)
         CrosshairEngine.Lines.Right.Position = UDim2.new(0, totalGap, 0, -1)
+    end
+end
+
+function CrosshairEngine.Toggle(visible)
+    if visible == nil then
+        CrosshairEngine.Enabled = not CrosshairEngine.Enabled
+    else
+        CrosshairEngine.Enabled = (visible == true)
+    end
+    if not CrosshairEngine.Gui and CrosshairEngine.Enabled then
+        CrosshairEngine.Init()
+    end
+    if CrosshairEngine.Gui then
+        CrosshairEngine.Gui.Enabled = CrosshairEngine.Enabled
     end
 end
 
@@ -8152,6 +8264,32 @@ function MM2Engine.CheckKnifeThrowCPA(knifePart)
     return false
 end
 
+function MM2Engine.AutoShoot(enabled)
+    MM2Engine.BallisticAim = (enabled == true)
+end
+MM2Engine.ToggleAutoShoot = MM2Engine.AutoShoot
+
+function MM2Engine.ToggleRadar(enabled)
+    MM2Engine.RadarActive = (enabled == true)
+    if not MM2Engine.RadarContainer and enabled then
+        MM2Engine.SetupRadar()
+    end
+    if MM2Engine.RadarContainer then
+        MM2Engine.RadarContainer.Visible = (enabled == true)
+    end
+end
+
+function MM2Engine.ToggleStareHUD(enabled)
+    MM2Engine.StaringHUDActive = (enabled == true)
+    if MM2Engine.StareHUDContainer then
+        MM2Engine.StareHUDContainer.Visible = (enabled == true)
+    end
+end
+
+function MM2Engine.ToggleKnifeDodge(enabled)
+    MM2Engine.KnifeDodgeActive = (enabled == true)
+end
+
 -- 2D Radar Minimap Initialization
 function MM2Engine.SetupRadar(guiRoot)
     guiRoot = guiRoot or getGuiRoot()
@@ -8220,10 +8358,13 @@ function MM2Engine.UpdateRadar()
 
             blip.Position = UDim2.new(0.5, math.floor(clampedDist * math.cos(angle) - 3), 0.5, math.floor(clampedDist * math.sin(angle) - 3))
             
-            -- Role color
-            if MM2Engine.Roles.Murderer == p then
+            -- Role color resolution: direct assignment or global role cache
+            local roleCache = rawget(_G, "GoHubV14MM2RoleCache")
+            local roleFromCache = roleCache and (roleCache[p.Name:lower()] or roleCache[tostring(p.UserId)])
+
+            if MM2Engine.Roles.Murderer == p or roleFromCache == "MURDER" then
                 blip.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
-            elseif MM2Engine.Roles.Sheriff == p or MM2Engine.Roles.Hero == p then
+            elseif MM2Engine.Roles.Sheriff == p or MM2Engine.Roles.Hero == p or roleFromCache == "SHERIFE" or roleFromCache == "HEROI" then
                 blip.BackgroundColor3 = Color3.fromRGB(40, 140, 255)
             else
                 blip.BackgroundColor3 = Color3.fromRGB(40, 220, 100)
@@ -8447,6 +8588,18 @@ function TrollingEngine.DeployCloneDecoy()
     return clone
 end
 
+function TrollingEngine.StopVortexFling()
+    TrollingEngine.VortexActive = false
+    local char = LocalPlayer and LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
+end
+
+TrollingEngine.SpawnDecoy = TrollingEngine.DeployCloneDecoy
+
 -- Export APIs
 GameTrollingModule.DockEngine = DockEngine
 GameTrollingModule.TelemetryEngine = TelemetryEngine
@@ -8456,6 +8609,10 @@ GameTrollingModule.TrollingEngine = TrollingEngine
 
 rawset(_G, "GoHubV14GameTrolling", GameTrollingModule)
 rawset(shared, "GoHubV14GameTrolling", GameTrollingModule)
+rawset(_G, "MM2Engine", MM2Engine)
+rawset(shared, "MM2Engine", MM2Engine)
+rawset(_G, "TrollingEngine", TrollingEngine)
+rawset(shared, "TrollingEngine", TrollingEngine)
 
 -- [Module Return] return GameTrollingModule
 end
@@ -9596,15 +9753,17 @@ local function UpdateUniversalESP(enabled)
                     local hl = UniversalESPCache[p]
                     if not hl or not hl.Parent then
                         ClearPlayerESP(p)
-                        local newHl = (HubState.AcquireHighlight and HubState.AcquireHighlight(p.Character, 1, HubState.Theme.Accent or Color3.fromRGB(148, 0, 211), Color3.fromRGB(255, 255, 255))) or (_G.HighlightPool and _G.HighlightPool.AcquireHighlight and _G.HighlightPool.AcquireHighlight(p.Character, 1, HubState.Theme.Accent or Color3.fromRGB(148, 0, 211), Color3.fromRGB(255, 255, 255)))
-                        newHl.Name = "UniESP_" .. p.Name
-                        newHl.Adornee = p.Character
-                        newHl.FillColor = HubState.Theme.Accent or Color3.fromRGB(148, 0, 211)
-                        newHl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                        newHl.FillTransparency = 0.45
-                        newHl.OutlineTransparency = 0.1
-                        newHl.Parent = UniversalESPFolder
-                        UniversalESPCache[p] = newHl
+                        local newHl = (_G.HighlightPool and _G.HighlightPool.AcquireHighlight and _G.HighlightPool.AcquireHighlight(p.Character, 1, HubState.Theme.Accent or Color3.fromRGB(148, 0, 211), Color3.fromRGB(255, 255, 255))) or (HubState.AcquireHighlight and HubState.AcquireHighlight(p.Character, 1, HubState.Theme.Accent or Color3.fromRGB(148, 0, 211), Color3.fromRGB(255, 255, 255)))
+                        if newHl then
+                            newHl.Name = "UniESP_" .. p.Name
+                            newHl.Adornee = p.Character
+                            newHl.FillColor = HubState.Theme.Accent or Color3.fromRGB(148, 0, 211)
+                            newHl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            newHl.FillTransparency = 0.45
+                            newHl.OutlineTransparency = 0.1
+                            newHl.Parent = UniversalESPFolder
+                            UniversalESPCache[p] = newHl
+                        end
                     elseif hl.Adornee ~= p.Character then
                         hl.Adornee = p.Character
                     end
@@ -9639,6 +9798,8 @@ MM2HitboxFolder.Name = "GoHub_MM2_Hitboxes"
 pcall(function() MM2HitboxFolder.Parent = (Workspace or GuiRoot) end)
 
 local MM2RoleDataCache = {}
+rawset(_G, "GoHubV14MM2RoleCache", MM2RoleDataCache)
+rawset(shared, "GoHubV14MM2RoleCache", MM2RoleDataCache)
 local MM2DroppedGun = nil
 local lastRemotePoll = 0
 local remoteListenersSetup = false
@@ -9714,49 +9875,110 @@ end
 local function connectPlayerWeapons(p)
     if not p or playerCharConnections[p] then return end
 
-    local function scanChar(char)
-        if not char then return end
-        for _, child in ipairs(char:GetChildren()) do
-            if isKnifeItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "MURDER"
-                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
-            elseif isGunItem(child) then
-                local r = MM2DroppedGun and "HEROI" or "SHERIFE"
-                MM2RoleDataCache[p.Name:lower()] = r
-                MM2RoleDataCache[tostring(p.UserId)] = r
+    local function updateWeaponRoleState()
+        local hasKnife = false
+        local hasGun = false
+
+        if p.Character then
+            for _, child in ipairs(p.Character:GetChildren()) do
+                if isKnifeItem(child) then hasKnife = true
+                elseif isGunItem(child) then hasGun = true end
             end
         end
 
+        local bp = p:FindFirstChild("Backpack")
+        if bp then
+            for _, child in ipairs(bp:GetChildren()) do
+                if isKnifeItem(child) then hasKnife = true
+                elseif isGunItem(child) then hasGun = true end
+            end
+        end
+
+        local pNameLower = p.Name:lower()
+        local pUserIdStr = tostring(p.UserId)
+
+        if hasKnife then
+            MM2RoleDataCache[pNameLower] = "MURDER"
+            MM2RoleDataCache[pUserIdStr] = "MURDER"
+            if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+                local mRoles = _G.GoHubV14GameTrolling.MM2Engine.Roles
+                if mRoles then mRoles.Murderer = p end
+            end
+        elseif hasGun then
+            local r = MM2DroppedGun and "HEROI" or "SHERIFE"
+            MM2RoleDataCache[pNameLower] = r
+            MM2RoleDataCache[pUserIdStr] = r
+            if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+                local mRoles = _G.GoHubV14GameTrolling.MM2Engine.Roles
+                if mRoles then
+                    if r == "HEROI" then mRoles.Hero = p else mRoles.Sheriff = p end
+                end
+            end
+        else
+            MM2RoleDataCache[pNameLower] = nil
+            MM2RoleDataCache[pUserIdStr] = nil
+            if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+                local mRoles = _G.GoHubV14GameTrolling.MM2Engine.Roles
+                if mRoles then
+                    if mRoles.Murderer == p then mRoles.Murderer = nil end
+                    if mRoles.Sheriff == p then mRoles.Sheriff = nil end
+                    if mRoles.Hero == p then mRoles.Hero = nil end
+                end
+            end
+        end
+    end
+
+    local function scanChar(char)
+        if not char then return end
+
+        -- Reset stale round assignments when a new character spawns
+        MM2RoleDataCache[p.Name:lower()] = nil
+        MM2RoleDataCache[tostring(p.UserId)] = nil
+
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.Died:Connect(function()
+                MM2RoleDataCache[p.Name:lower()] = nil
+                MM2RoleDataCache[tostring(p.UserId)] = nil
+                if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+                    local mRoles = _G.GoHubV14GameTrolling.MM2Engine.Roles
+                    if mRoles then
+                        if mRoles.Murderer == p then mRoles.Murderer = nil end
+                        if mRoles.Sheriff == p then mRoles.Sheriff = nil end
+                        if mRoles.Hero == p then mRoles.Hero = nil end
+                    end
+                end
+            end)
+        end
+
+        updateWeaponRoleState()
+
         char.ChildAdded:Connect(function(child)
-            if isKnifeItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "MURDER"
-                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
-            elseif isGunItem(child) then
-                local r = MM2DroppedGun and "HEROI" or "SHERIFE"
-                MM2RoleDataCache[p.Name:lower()] = r
-                MM2RoleDataCache[tostring(p.UserId)] = r
+            if isKnifeItem(child) or isGunItem(child) then
+                updateWeaponRoleState()
+            end
+        end)
+
+        char.ChildRemoved:Connect(function(child)
+            if isKnifeItem(child) or isGunItem(child) then
+                task.defer(updateWeaponRoleState)
             end
         end)
     end
 
     local function scanBackpack(bp)
         if not bp then return end
-        for _, child in ipairs(bp:GetChildren()) do
-            if isKnifeItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "MURDER"
-                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
-            elseif isGunItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "SHERIFE"
-                MM2RoleDataCache[tostring(p.UserId)] = "SHERIFE"
-            end
-        end
+        updateWeaponRoleState()
+
         bp.ChildAdded:Connect(function(child)
-            if isKnifeItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "MURDER"
-                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
-            elseif isGunItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "SHERIFE"
-                MM2RoleDataCache[tostring(p.UserId)] = "SHERIFE"
+            if isKnifeItem(child) or isGunItem(child) then
+                updateWeaponRoleState()
+            end
+        end)
+
+        bp.ChildRemoved:Connect(function(child)
+            if isKnifeItem(child) or isGunItem(child) then
+                task.defer(updateWeaponRoleState)
             end
         end)
     end
@@ -9873,46 +10095,67 @@ local function DetectRole(p)
     local pUserIdStr = tostring(p.UserId)
     local cachedRole = MM2RoleDataCache[pNameLower] or MM2RoleDataCache[pUserIdStr]
 
+    local role = nil
+    local col = nil
+
     if cachedRole == "MURDER" then
-        return "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
+        role, col = "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
     elseif cachedRole == "SHERIFE" then
-        return "SHERIFE", HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255)
+        role, col = "SHERIFE", HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255)
     elseif cachedRole == "HEROI" then
-        return "HEROI", Color3.fromRGB(255, 215, 0)
+        role, col = "HEROI", Color3.fromRGB(255, 215, 0)
     end
 
-    if p.Character then
+    if not role and p.Character then
         for _, item in ipairs(p.Character:GetChildren()) do
             if isKnifeItem(item) then
                 MM2RoleDataCache[pNameLower] = "MURDER"
                 MM2RoleDataCache[pUserIdStr] = "MURDER"
-                return "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
+                role, col = "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
+                break
             elseif isGunItem(item) then
                 local r = MM2DroppedGun and "HEROI" or "SHERIFE"
                 MM2RoleDataCache[pNameLower] = r
                 MM2RoleDataCache[pUserIdStr] = r
-                local col = (r == "HEROI") and Color3.fromRGB(255, 215, 0) or (HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255))
-                return r, col
+                role, col = r, (r == "HEROI") and Color3.fromRGB(255, 215, 0) or (HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255))
+                break
             end
         end
     end
 
-    local bp = p:FindFirstChild("Backpack")
-    if bp then
-        for _, item in ipairs(bp:GetChildren()) do
-            if isKnifeItem(item) then
-                MM2RoleDataCache[pNameLower] = "MURDER"
-                MM2RoleDataCache[pUserIdStr] = "MURDER"
-                return "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
-            elseif isGunItem(item) then
-                MM2RoleDataCache[pNameLower] = "SHERIFE"
-                MM2RoleDataCache[pUserIdStr] = "SHERIFE"
-                return "SHERIFE", HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255)
+    if not role then
+        local bp = p:FindFirstChild("Backpack")
+        if bp then
+            for _, item in ipairs(bp:GetChildren()) do
+                if isKnifeItem(item) then
+                    MM2RoleDataCache[pNameLower] = "MURDER"
+                    MM2RoleDataCache[pUserIdStr] = "MURDER"
+                    role, col = "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
+                    break
+                elseif isGunItem(item) then
+                    MM2RoleDataCache[pNameLower] = "SHERIFE"
+                    MM2RoleDataCache[pUserIdStr] = "SHERIFE"
+                    role, col = "SHERIFE", HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255)
+                    break
+                end
             end
         end
     end
 
-    return "INOCENTE", HubState.Theme.Innocent or Color3.fromRGB(40, 220, 100)
+    if not role then
+        role, col = "INOCENTE", HubState.Theme.Innocent or Color3.fromRGB(40, 220, 100)
+    end
+
+    if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+        local mRoles = _G.GoHubV14GameTrolling.MM2Engine.Roles
+        if mRoles then
+            if role == "MURDER" then mRoles.Murderer = p
+            elseif role == "SHERIFE" then mRoles.Sheriff = p
+            elseif role == "HEROI" then mRoles.Hero = p end
+        end
+    end
+
+    return role, col
 end
 
 local droppedGunESP = nil
@@ -10105,11 +10348,13 @@ function MM2Engine.ToggleCoinESP(enabled)
         MM2CoinFolder:ClearAllChildren()
         for _, obj in ipairs(Workspace:GetDescendants()) do
             if obj:IsA("BasePart") and (obj.Name == "Coin_Server" or obj.Name == "Coin" or obj.Name == "CoinContainer") then
-                local hl = (HubState.AcquireHighlight and HubState.AcquireHighlight(obj, 3, Color3.fromRGB(255, 215, 0), Color3.fromRGB(255, 255, 255))) or (_G.HighlightPool and _G.HighlightPool.AcquireHighlight and _G.HighlightPool.AcquireHighlight(obj, 3, Color3.fromRGB(255, 215, 0), Color3.fromRGB(255, 255, 255)))
-                hl.Adornee = obj
-                hl.FillColor = Color3.fromRGB(255, 215, 0)
-                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                hl.FillTransparency = 0.3
+                local hl = (_G.HighlightPool and _G.HighlightPool.AcquireHighlight and _G.HighlightPool.AcquireHighlight(obj, 3, Color3.fromRGB(255, 215, 0), Color3.fromRGB(255, 255, 255))) or (HubState.AcquireHighlight and HubState.AcquireHighlight(obj, 3, Color3.fromRGB(255, 215, 0), Color3.fromRGB(255, 255, 255)))
+                if hl then
+                    hl.Adornee = obj
+                    hl.FillColor = Color3.fromRGB(255, 215, 0)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.3
+                end
             end
         end
     end))
@@ -11991,8 +12236,12 @@ TabAudio:CreateDropdown({
     Flag = "audio_dsp_preset_dropdown",
     Callback = function(Option)
         local preset = Option[1] or Option
-        if _G.GoHubV14Audio and _G.GoHubV14Audio.ApplyDSPPreset then
-            _G.GoHubV14Audio.ApplyDSPPreset(preset)
+        if _G.GoHubV14Audio then
+            if _G.GoHubV14Audio.SetEqualizerProfile then
+                _G.GoHubV14Audio.SetEqualizerProfile(preset)
+            elseif _G.GoHubV14Audio.ApplyDSPPreset then
+                _G.GoHubV14Audio.ApplyDSPPreset(preset)
+            end
         end
     end,
 })
@@ -12004,8 +12253,12 @@ TabAudio:CreateToggle({
     CurrentValue = false,
     Flag = "audio_vis_3d_toggle",
     Callback = function(Value)
-        if _G.GoHubV14Audio and _G.GoHubV14Audio.ToggleVisualizer3D then
-            _G.GoHubV14Audio.ToggleVisualizer3D(Value)
+        if _G.GoHubV14Audio then
+            if _G.GoHubV14Audio.SetVisualizer3DEnabled then
+                _G.GoHubV14Audio.SetVisualizer3DEnabled(Value)
+            elseif _G.GoHubV14Audio.ToggleVisualizer3D then
+                _G.GoHubV14Audio.ToggleVisualizer3D(Value)
+            end
         end
     end,
 })
@@ -12015,8 +12268,12 @@ TabAudio:CreateToggle({
     CurrentValue = false,
     Flag = "audio_shockwave_toggle",
     Callback = function(Value)
-        if _G.GoHubV14Audio and _G.GoHubV14Audio.ToggleShockwaves then
-            _G.GoHubV14Audio.ToggleShockwaves(Value)
+        if _G.GoHubV14Audio then
+            if _G.GoHubV14Audio.SetShockwavesEnabled then
+                _G.GoHubV14Audio.SetShockwavesEnabled(Value)
+            elseif _G.GoHubV14Audio.ToggleShockwaves then
+                _G.GoHubV14Audio.ToggleShockwaves(Value)
+            end
         end
     end,
 })
@@ -12026,8 +12283,12 @@ TabAudio:CreateToggle({
     CurrentValue = false,
     Flag = "audio_spectrum_hud_toggle",
     Callback = function(Value)
-        if _G.GoHubV14Audio and _G.GoHubV14Audio.ToggleEqualizerHUD then
-            _G.GoHubV14Audio.ToggleEqualizerHUD(Value)
+        if _G.GoHubV14Audio then
+            if _G.GoHubV14Audio.SetEqualizerHUDEnabled then
+                _G.GoHubV14Audio.SetEqualizerHUDEnabled(Value)
+            elseif _G.GoHubV14Audio.ToggleEqualizerHUD then
+                _G.GoHubV14Audio.ToggleEqualizerHUD(Value)
+            end
         end
     end,
 })
@@ -12284,8 +12545,12 @@ TabVisuals:CreateToggle({
     CurrentValue = false,
     Flag = "visuals_camera_motes_toggle",
     Callback = function(Value)
-        if _G.GoHubV14Lighting and _G.GoHubV14Lighting.SetCameraMotes then
-            _G.GoHubV14Lighting.SetCameraMotes(Value)
+        if _G.GoHubV14Lighting then
+            if _G.GoHubV14Lighting.SetParticleMotesEnabled then
+                _G.GoHubV14Lighting.SetParticleMotesEnabled(Value)
+            elseif _G.GoHubV14Lighting.SetCameraMotes then
+                _G.GoHubV14Lighting.SetCameraMotes(Value)
+            end
         end
     end,
 })
@@ -12824,11 +13089,25 @@ TabCommands:CreateParagraph({
 -- ROTINA DE DESCARREGAMENTO TOTAL & LIMPEZA DE MEMÓRIA (UNLOAD)
 -- ====================================================================
 local function ResetAllStates()
-    -- 1. Desconectar e esvaziar todo o ConnectionPool
+    -- 0. Desconectar e esvaziar todos os loops V14 e legados
+    if HubState and HubState.ClearAllLoops then
+        HubState.ClearAllLoops()
+    end
     for tag, _ in pairs(ConnectionPool) do
         DropLoop(tag)
     end
     table.clear(ConnectionPool)
+
+    -- Teardown modular de todos os motores V14
+    if _G.GoHubV14Audio and _G.GoHubV14Audio.Teardown then
+        _G.GoHubV14Audio.Teardown()
+    end
+    if _G.GoHubV14Core and _G.GoHubV14Core.Teardown then
+        _G.GoHubV14Core.Teardown()
+    end
+    if _G.HighlightPool and _G.HighlightPool.ClearAll then
+        _G.HighlightPool.ClearAll()
+    end
 
     -- 2. Desligar motores de movimento
     if MovementEngine.SetFlight then MovementEngine.SetFlight(false) end
@@ -13016,22 +13295,33 @@ task.spawn(function()
     end)
 end)
 
-RunService.RenderStepped:Connect(function(dt)
-    pcall(function()
-        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.TelemetryEngine then
-            _G.GoHubV14GameTrolling.TelemetryEngine.Update(dt)
+local function onMasterRenderStepped(dt)
+    local trolling = _G.GoHubV14GameTrolling
+    if trolling then
+        if trolling.TelemetryEngine and trolling.TelemetryEngine.Active then
+            trolling.TelemetryEngine.Update(dt)
         end
-        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.CrosshairEngine then
-            _G.GoHubV14GameTrolling.CrosshairEngine.Update(dt)
+        if trolling.CrosshairEngine and trolling.CrosshairEngine.Enabled then
+            trolling.CrosshairEngine.Update(dt)
         end
-        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
-            _G.GoHubV14GameTrolling.MM2Engine.UpdateRadar()
+        if trolling.MM2Engine and trolling.MM2Engine.RadarActive then
+            trolling.MM2Engine.UpdateRadar()
         end
-        if _G.GoHubV14Movement and _G.GoHubV14Movement.UpdateMovement then
-            _G.GoHubV14Movement.UpdateMovement(dt)
-        end
-        if _G.GoHubV14Lighting and _G.GoHubV14Lighting.UpdateEffects then
-            _G.GoHubV14Lighting.UpdateEffects(dt)
-        end
-    end)
-end)
+    end
+    local mov = _G.GoHubV14Movement
+    if mov and mov.UpdateMovement then
+        mov.UpdateMovement(dt)
+    end
+    local light = _G.GoHubV14Lighting
+    if light and light.UpdateEffects then
+        light.UpdateEffects(dt)
+    end
+end
+
+if HubState and HubState.RegisterLoop then
+    HubState.RegisterLoop("GoHubV14_MasterRenderLoop", RunService.RenderStepped:Connect(onMasterRenderStepped))
+elseif ConnectionPool then
+    ConnectionPool["GoHubV14_MasterRenderLoop"] = RunService.RenderStepped:Connect(onMasterRenderStepped)
+else
+    RunService.RenderStepped:Connect(onMasterRenderStepped)
+end

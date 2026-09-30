@@ -223,6 +223,14 @@ function DockEngine.SetVisible(visible)
     end
 end
 
+function DockEngine.Toggle(visible)
+    if visible == nil then
+        DockEngine.SetVisible(not DockEngine.Visible)
+    else
+        DockEngine.SetVisible(visible == true)
+    end
+end
+
 function DockEngine.ToggleExpand()
     DockEngine.Expanded = not DockEngine.Expanded
     local targetW = DockEngine.Expanded and 270 or 44
@@ -375,6 +383,20 @@ function TelemetryEngine.GetMetrics()
     }
 end
 
+function TelemetryEngine.Toggle(visible)
+    if visible == nil then
+        TelemetryEngine.Active = not TelemetryEngine.Active
+    else
+        TelemetryEngine.Active = (visible == true)
+    end
+    if not TelemetryEngine.Container and TelemetryEngine.Active then
+        TelemetryEngine.Init()
+    end
+    if TelemetryEngine.Container then
+        TelemetryEngine.Container.Visible = TelemetryEngine.Active
+    end
+end
+
 -- ==============================================================================
 -- 3. ENGINE R5: DYNAMIC CROSSHAIR & HITMARKERS
 -- ==============================================================================
@@ -474,6 +496,20 @@ function CrosshairEngine.Update(dt)
         CrosshairEngine.Lines.Bottom.Position = UDim2.new(0, -1, 0, totalGap)
         CrosshairEngine.Lines.Left.Position = UDim2.new(0, -totalGap - 10, 0, -1)
         CrosshairEngine.Lines.Right.Position = UDim2.new(0, totalGap, 0, -1)
+    end
+end
+
+function CrosshairEngine.Toggle(visible)
+    if visible == nil then
+        CrosshairEngine.Enabled = not CrosshairEngine.Enabled
+    else
+        CrosshairEngine.Enabled = (visible == true)
+    end
+    if not CrosshairEngine.Gui and CrosshairEngine.Enabled then
+        CrosshairEngine.Init()
+    end
+    if CrosshairEngine.Gui then
+        CrosshairEngine.Gui.Enabled = CrosshairEngine.Enabled
     end
 end
 
@@ -608,6 +644,32 @@ function MM2Engine.CheckKnifeThrowCPA(knifePart)
     return false
 end
 
+function MM2Engine.AutoShoot(enabled)
+    MM2Engine.BallisticAim = (enabled == true)
+end
+MM2Engine.ToggleAutoShoot = MM2Engine.AutoShoot
+
+function MM2Engine.ToggleRadar(enabled)
+    MM2Engine.RadarActive = (enabled == true)
+    if not MM2Engine.RadarContainer and enabled then
+        MM2Engine.SetupRadar()
+    end
+    if MM2Engine.RadarContainer then
+        MM2Engine.RadarContainer.Visible = (enabled == true)
+    end
+end
+
+function MM2Engine.ToggleStareHUD(enabled)
+    MM2Engine.StaringHUDActive = (enabled == true)
+    if MM2Engine.StareHUDContainer then
+        MM2Engine.StareHUDContainer.Visible = (enabled == true)
+    end
+end
+
+function MM2Engine.ToggleKnifeDodge(enabled)
+    MM2Engine.KnifeDodgeActive = (enabled == true)
+end
+
 -- 2D Radar Minimap Initialization
 function MM2Engine.SetupRadar(guiRoot)
     guiRoot = guiRoot or getGuiRoot()
@@ -676,10 +738,13 @@ function MM2Engine.UpdateRadar()
 
             blip.Position = UDim2.new(0.5, math.floor(clampedDist * math.cos(angle) - 3), 0.5, math.floor(clampedDist * math.sin(angle) - 3))
             
-            -- Role color
-            if MM2Engine.Roles.Murderer == p then
+            -- Role color resolution: direct assignment or global role cache
+            local roleCache = rawget(_G, "GoHubV14MM2RoleCache")
+            local roleFromCache = roleCache and (roleCache[p.Name:lower()] or roleCache[tostring(p.UserId)])
+
+            if MM2Engine.Roles.Murderer == p or roleFromCache == "MURDER" then
                 blip.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
-            elseif MM2Engine.Roles.Sheriff == p or MM2Engine.Roles.Hero == p then
+            elseif MM2Engine.Roles.Sheriff == p or MM2Engine.Roles.Hero == p or roleFromCache == "SHERIFE" or roleFromCache == "HEROI" then
                 blip.BackgroundColor3 = Color3.fromRGB(40, 140, 255)
             else
                 blip.BackgroundColor3 = Color3.fromRGB(40, 220, 100)
@@ -903,6 +968,18 @@ function TrollingEngine.DeployCloneDecoy()
     return clone
 end
 
+function TrollingEngine.StopVortexFling()
+    TrollingEngine.VortexActive = false
+    local char = LocalPlayer and LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
+end
+
+TrollingEngine.SpawnDecoy = TrollingEngine.DeployCloneDecoy
+
 -- Export APIs
 GameTrollingModule.DockEngine = DockEngine
 GameTrollingModule.TelemetryEngine = TelemetryEngine
@@ -912,5 +989,9 @@ GameTrollingModule.TrollingEngine = TrollingEngine
 
 rawset(_G, "GoHubV14GameTrolling", GameTrollingModule)
 rawset(shared, "GoHubV14GameTrolling", GameTrollingModule)
+rawset(_G, "MM2Engine", MM2Engine)
+rawset(shared, "MM2Engine", MM2Engine)
+rawset(_G, "TrollingEngine", TrollingEngine)
+rawset(shared, "TrollingEngine", TrollingEngine)
 
 return GameTrollingModule

@@ -195,17 +195,21 @@ function Polyfills.FireTouchInterest(part, touchWithPart, toggle)
         end
     end
 
-    -- Fallback: Character micro-nudge simulation
+    -- Fallback: Character micro-nudge simulation (non-yielding via task.spawn)
     local okNudge, err = pcall(function()
         if not part:IsA("BasePart") or not touchWithPart:IsA("BasePart") then return end
         if toggle == 0 or toggle == true then
-            local prevCF = touchWithPart.CFrame
-            local targetCF = part.CFrame
-            touchWithPart.CFrame = targetCF
-            if RunService then
-                RunService.Heartbeat:Wait()
-            end
-            touchWithPart.CFrame = prevCF
+            task.spawn(function()
+                local prevCF = touchWithPart.CFrame
+                local targetCF = part.CFrame
+                touchWithPart.CFrame = targetCF
+                if RunService then
+                    RunService.Heartbeat:Wait()
+                end
+                if touchWithPart and touchWithPart.Parent then
+                    touchWithPart.CFrame = prevCF
+                end
+            end)
         end
     end)
     return okNudge, err
@@ -1846,5 +1850,11 @@ GoHubV14Core.FlagSanitizer = FlagSanitizer
 
 _G.GoHubV14Core = GoHubV14Core
 shared.GoHubV14Core = GoHubV14Core
+
+-- Global and shared exports for cross-module zero-alloc access
+rawset(_G, "HighlightPool", HighlightPool)
+rawset(shared, "HighlightPool", HighlightPool)
+rawset(_G, "GoHubV14State", HubState)
+rawset(shared, "GoHubV14State", HubState)
 
 return GoHubV14Core

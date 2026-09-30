@@ -176,13 +176,14 @@ local MusicPlayer = {
     }
 }
 
--- Resolve or create Sound parent container (Camera or SoundService for 100% audible 2D playback)
+-- Resolve or create Sound parent container (SoundService or Camera/Workspace for 100% audible 2D playback)
 local function getAudioContainer()
     if MusicPlayer.Container and MusicPlayer.Container.Parent then
         return MusicPlayer.Container
     end
 
-    local parent = (Workspace and Workspace.CurrentCamera) or SoundService or Workspace
+    -- SoundService is persistent across respawns and plays 100% 2D non-spatial audio
+    local parent = SoundService or (Workspace and Workspace.CurrentCamera) or Workspace
     local folder = parent:FindFirstChild("GoHubV14_AudioContainer")
     if not folder then
         folder = Instance.new("Folder")
@@ -477,10 +478,10 @@ function AudioEngine.PlayTrack(trackIdOrIndex, customVol, customSpeed)
 
     -- Prepare crossfade: existing active sound becomes fading sound
     local oldSound = MusicPlayer.ActiveSound
-    if oldSound and oldSound.IsPlaying then
-        MusicPlayer.FadingSound = oldSound
+    if oldSound then
+        if oldSound.IsPlaying and TweenService then
+            MusicPlayer.FadingSound = oldSound
 
-        if TweenService then
             local fadeTween = TweenService:Create(oldSound, TweenInfo.new(tau, Enum.EasingStyle.Linear), { Volume = 0 })
             fadeTween:Play()
             fadeTween.Completed:Connect(function()
@@ -1026,8 +1027,20 @@ local function spawnShockwaveRing(rootPos, hipHeight, color)
     end
 end
 
+AudioEngine.ShockwavesEnabled = false
+
+function AudioEngine.SetShockwavesEnabled(enabled)
+    AudioEngine.ShockwavesEnabled = (enabled == true)
+end
+
+function AudioEngine.ToggleShockwaves(enabled)
+    AudioEngine.SetShockwavesEnabled(enabled)
+end
+
 -- Hook beat drop event to shockwave trigger
 AudioEngine.OnBeatDrop:Connect(function(loudness)
+    if not AudioEngine.ShockwavesEnabled then return end
+
     local hrp, char = getLocalRootPart()
     if not hrp then return end
 
@@ -1450,9 +1463,13 @@ function AudioEngine.Teardown()
 end
 
 -- ------------------------------------------------------------------------------
--- 15. GLOBAL EXPORTS
+-- 15. METHOD ALIASES & GLOBAL EXPORTS
 -- ------------------------------------------------------------------------------
-_G.GoHubV14Audio = AudioEngine
-shared.GoHubV14Audio = AudioEngine
+AudioEngine.ApplyDSPPreset = AudioEngine.SetEqualizerProfile
+AudioEngine.ToggleVisualizer3D = AudioEngine.SetVisualizer3DEnabled
+AudioEngine.ToggleEqualizerHUD = AudioEngine.SetEqualizerHUDEnabled
+
+rawset(_G, "GoHubV14Audio", AudioEngine)
+rawset(shared, "GoHubV14Audio", AudioEngine)
 
 return AudioEngine

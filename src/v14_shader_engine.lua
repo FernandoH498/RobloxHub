@@ -2190,22 +2190,21 @@ local ExportedModule = {
     ShaderPresets = ShaderPresets
 }
 
--- Bind sub-tables onto LightingEngine for direct call compatibility
+-- Bind sub-tables and aliases onto LightingEngine for direct call compatibility
 LightingEngine.BuildVisualsTab = BuildVisualsTab
 LightingEngine.DispatchCommand = DispatchShaderCommand
+LightingEngine.SetCameraMotes = LightingEngine.SetParticleMotesEnabled
 
 -- Global exports
+rawset(_G, "GoHubV14Lighting", LightingEngine)
+rawset(shared, "GoHubV14Lighting", LightingEngine)
+rawset(_G, "GoHub_ShaderEngine", ExportedModule)
+rawset(shared, "GoHub_ShaderEngine", ExportedModule)
 if getgenv then
-    getgenv().GoHubV14Lighting = LightingEngine
-    getgenv().GoHub_ShaderEngine = ExportedModule
-else
-    _G.GoHubV14Lighting = LightingEngine
-    _G.GoHub_ShaderEngine = ExportedModule
-end
-
-if shared then
-    shared.GoHubV14Lighting = LightingEngine
-    shared.GoHub_ShaderEngine = ExportedModule
+    pcall(function()
+        getgenv().GoHubV14Lighting = LightingEngine
+        getgenv().GoHub_ShaderEngine = ExportedModule
+    end)
 end
 
 return LightingEngine

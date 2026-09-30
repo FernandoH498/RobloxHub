@@ -1319,14 +1319,16 @@ local function UpdateUniversalESP(enabled)
                     if not hl or not hl.Parent then
                         ClearPlayerESP(p)
                         local newHl = Instance.new("Highlight")
-                        newHl.Name = "UniESP_" .. p.Name
-                        newHl.Adornee = p.Character
-                        newHl.FillColor = HubState.Theme.Accent or Color3.fromRGB(148, 0, 211)
-                        newHl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                        newHl.FillTransparency = 0.45
-                        newHl.OutlineTransparency = 0.1
-                        newHl.Parent = UniversalESPFolder
-                        UniversalESPCache[p] = newHl
+                        if newHl then
+                            newHl.Name = "UniESP_" .. p.Name
+                            newHl.Adornee = p.Character
+                            newHl.FillColor = HubState.Theme.Accent or Color3.fromRGB(148, 0, 211)
+                            newHl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            newHl.FillTransparency = 0.45
+                            newHl.OutlineTransparency = 0.1
+                            newHl.Parent = UniversalESPFolder
+                            UniversalESPCache[p] = newHl
+                        end
                     elseif hl.Adornee ~= p.Character then
                         hl.Adornee = p.Character
                     end
@@ -1361,6 +1363,8 @@ MM2HitboxFolder.Name = "GoHub_MM2_Hitboxes"
 pcall(function() MM2HitboxFolder.Parent = (Workspace or GuiRoot) end)
 
 local MM2RoleDataCache = {}
+rawset(_G, "GoHubV14MM2RoleCache", MM2RoleDataCache)
+rawset(shared, "GoHubV14MM2RoleCache", MM2RoleDataCache)
 local MM2DroppedGun = nil
 local lastRemotePoll = 0
 local remoteListenersSetup = false
@@ -1436,49 +1440,110 @@ end
 local function connectPlayerWeapons(p)
     if not p or playerCharConnections[p] then return end
 
-    local function scanChar(char)
-        if not char then return end
-        for _, child in ipairs(char:GetChildren()) do
-            if isKnifeItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "MURDER"
-                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
-            elseif isGunItem(child) then
-                local r = MM2DroppedGun and "HEROI" or "SHERIFE"
-                MM2RoleDataCache[p.Name:lower()] = r
-                MM2RoleDataCache[tostring(p.UserId)] = r
+    local function updateWeaponRoleState()
+        local hasKnife = false
+        local hasGun = false
+
+        if p.Character then
+            for _, child in ipairs(p.Character:GetChildren()) do
+                if isKnifeItem(child) then hasKnife = true
+                elseif isGunItem(child) then hasGun = true end
             end
         end
 
+        local bp = p:FindFirstChild("Backpack")
+        if bp then
+            for _, child in ipairs(bp:GetChildren()) do
+                if isKnifeItem(child) then hasKnife = true
+                elseif isGunItem(child) then hasGun = true end
+            end
+        end
+
+        local pNameLower = p.Name:lower()
+        local pUserIdStr = tostring(p.UserId)
+
+        if hasKnife then
+            MM2RoleDataCache[pNameLower] = "MURDER"
+            MM2RoleDataCache[pUserIdStr] = "MURDER"
+            if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+                local mRoles = _G.GoHubV14GameTrolling.MM2Engine.Roles
+                if mRoles then mRoles.Murderer = p end
+            end
+        elseif hasGun then
+            local r = MM2DroppedGun and "HEROI" or "SHERIFE"
+            MM2RoleDataCache[pNameLower] = r
+            MM2RoleDataCache[pUserIdStr] = r
+            if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+                local mRoles = _G.GoHubV14GameTrolling.MM2Engine.Roles
+                if mRoles then
+                    if r == "HEROI" then mRoles.Hero = p else mRoles.Sheriff = p end
+                end
+            end
+        else
+            MM2RoleDataCache[pNameLower] = nil
+            MM2RoleDataCache[pUserIdStr] = nil
+            if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+                local mRoles = _G.GoHubV14GameTrolling.MM2Engine.Roles
+                if mRoles then
+                    if mRoles.Murderer == p then mRoles.Murderer = nil end
+                    if mRoles.Sheriff == p then mRoles.Sheriff = nil end
+                    if mRoles.Hero == p then mRoles.Hero = nil end
+                end
+            end
+        end
+    end
+
+    local function scanChar(char)
+        if not char then return end
+
+        -- Reset stale round assignments when a new character spawns
+        MM2RoleDataCache[p.Name:lower()] = nil
+        MM2RoleDataCache[tostring(p.UserId)] = nil
+
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.Died:Connect(function()
+                MM2RoleDataCache[p.Name:lower()] = nil
+                MM2RoleDataCache[tostring(p.UserId)] = nil
+                if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+                    local mRoles = _G.GoHubV14GameTrolling.MM2Engine.Roles
+                    if mRoles then
+                        if mRoles.Murderer == p then mRoles.Murderer = nil end
+                        if mRoles.Sheriff == p then mRoles.Sheriff = nil end
+                        if mRoles.Hero == p then mRoles.Hero = nil end
+                    end
+                end
+            end)
+        end
+
+        updateWeaponRoleState()
+
         char.ChildAdded:Connect(function(child)
-            if isKnifeItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "MURDER"
-                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
-            elseif isGunItem(child) then
-                local r = MM2DroppedGun and "HEROI" or "SHERIFE"
-                MM2RoleDataCache[p.Name:lower()] = r
-                MM2RoleDataCache[tostring(p.UserId)] = r
+            if isKnifeItem(child) or isGunItem(child) then
+                updateWeaponRoleState()
+            end
+        end)
+
+        char.ChildRemoved:Connect(function(child)
+            if isKnifeItem(child) or isGunItem(child) then
+                task.defer(updateWeaponRoleState)
             end
         end)
     end
 
     local function scanBackpack(bp)
         if not bp then return end
-        for _, child in ipairs(bp:GetChildren()) do
-            if isKnifeItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "MURDER"
-                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
-            elseif isGunItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "SHERIFE"
-                MM2RoleDataCache[tostring(p.UserId)] = "SHERIFE"
-            end
-        end
+        updateWeaponRoleState()
+
         bp.ChildAdded:Connect(function(child)
-            if isKnifeItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "MURDER"
-                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
-            elseif isGunItem(child) then
-                MM2RoleDataCache[p.Name:lower()] = "SHERIFE"
-                MM2RoleDataCache[tostring(p.UserId)] = "SHERIFE"
+            if isKnifeItem(child) or isGunItem(child) then
+                updateWeaponRoleState()
+            end
+        end)
+
+        bp.ChildRemoved:Connect(function(child)
+            if isKnifeItem(child) or isGunItem(child) then
+                task.defer(updateWeaponRoleState)
             end
         end)
     end
@@ -1595,46 +1660,67 @@ local function DetectRole(p)
     local pUserIdStr = tostring(p.UserId)
     local cachedRole = MM2RoleDataCache[pNameLower] or MM2RoleDataCache[pUserIdStr]
 
+    local role = nil
+    local col = nil
+
     if cachedRole == "MURDER" then
-        return "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
+        role, col = "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
     elseif cachedRole == "SHERIFE" then
-        return "SHERIFE", HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255)
+        role, col = "SHERIFE", HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255)
     elseif cachedRole == "HEROI" then
-        return "HEROI", Color3.fromRGB(255, 215, 0)
+        role, col = "HEROI", Color3.fromRGB(255, 215, 0)
     end
 
-    if p.Character then
+    if not role and p.Character then
         for _, item in ipairs(p.Character:GetChildren()) do
             if isKnifeItem(item) then
                 MM2RoleDataCache[pNameLower] = "MURDER"
                 MM2RoleDataCache[pUserIdStr] = "MURDER"
-                return "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
+                role, col = "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
+                break
             elseif isGunItem(item) then
                 local r = MM2DroppedGun and "HEROI" or "SHERIFE"
                 MM2RoleDataCache[pNameLower] = r
                 MM2RoleDataCache[pUserIdStr] = r
-                local col = (r == "HEROI") and Color3.fromRGB(255, 215, 0) or (HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255))
-                return r, col
+                role, col = r, (r == "HEROI") and Color3.fromRGB(255, 215, 0) or (HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255))
+                break
             end
         end
     end
 
-    local bp = p:FindFirstChild("Backpack")
-    if bp then
-        for _, item in ipairs(bp:GetChildren()) do
-            if isKnifeItem(item) then
-                MM2RoleDataCache[pNameLower] = "MURDER"
-                MM2RoleDataCache[pUserIdStr] = "MURDER"
-                return "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
-            elseif isGunItem(item) then
-                MM2RoleDataCache[pNameLower] = "SHERIFE"
-                MM2RoleDataCache[pUserIdStr] = "SHERIFE"
-                return "SHERIFE", HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255)
+    if not role then
+        local bp = p:FindFirstChild("Backpack")
+        if bp then
+            for _, item in ipairs(bp:GetChildren()) do
+                if isKnifeItem(item) then
+                    MM2RoleDataCache[pNameLower] = "MURDER"
+                    MM2RoleDataCache[pUserIdStr] = "MURDER"
+                    role, col = "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
+                    break
+                elseif isGunItem(item) then
+                    MM2RoleDataCache[pNameLower] = "SHERIFE"
+                    MM2RoleDataCache[pUserIdStr] = "SHERIFE"
+                    role, col = "SHERIFE", HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255)
+                    break
+                end
             end
         end
     end
 
-    return "INOCENTE", HubState.Theme.Innocent or Color3.fromRGB(40, 220, 100)
+    if not role then
+        role, col = "INOCENTE", HubState.Theme.Innocent or Color3.fromRGB(40, 220, 100)
+    end
+
+    if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+        local mRoles = _G.GoHubV14GameTrolling.MM2Engine.Roles
+        if mRoles then
+            if role == "MURDER" then mRoles.Murderer = p
+            elseif role == "SHERIFE" then mRoles.Sheriff = p
+            elseif role == "HEROI" then mRoles.Hero = p end
+        end
+    end
+
+    return role, col
 end
 
 local droppedGunESP = nil
@@ -1828,10 +1914,12 @@ function MM2Engine.ToggleCoinESP(enabled)
         for _, obj in ipairs(Workspace:GetDescendants()) do
             if obj:IsA("BasePart") and (obj.Name == "Coin_Server" or obj.Name == "Coin" or obj.Name == "CoinContainer") then
                 local hl = Instance.new("Highlight", MM2CoinFolder)
-                hl.Adornee = obj
-                hl.FillColor = Color3.fromRGB(255, 215, 0)
-                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                hl.FillTransparency = 0.3
+                if hl then
+                    hl.Adornee = obj
+                    hl.FillColor = Color3.fromRGB(255, 215, 0)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.3
+                end
             end
         end
     end))
@@ -3923,11 +4011,25 @@ TabCommands:CreateParagraph({
 -- ROTINA DE DESCARREGAMENTO TOTAL & LIMPEZA DE MEMÓRIA (UNLOAD)
 -- ====================================================================
 local function ResetAllStates()
-    -- 1. Desconectar e esvaziar todo o ConnectionPool
+    -- 0. Desconectar e esvaziar todos os loops V14 e legados
+    if HubState and HubState.ClearAllLoops then
+        HubState.ClearAllLoops()
+    end
     for tag, _ in pairs(ConnectionPool) do
         DropLoop(tag)
     end
     table.clear(ConnectionPool)
+
+    -- Teardown modular de todos os motores V14
+    if _G.GoHubV14Audio and _G.GoHubV14Audio.Teardown then
+        _G.GoHubV14Audio.Teardown()
+    end
+    if _G.GoHubV14Core and _G.GoHubV14Core.Teardown then
+        _G.GoHubV14Core.Teardown()
+    end
+    if _G.HighlightPool and _G.HighlightPool.ClearAll then
+        _G.HighlightPool.ClearAll()
+    end
 
     -- 2. Desligar motores de movimento
     if MovementEngine.SetFlight then MovementEngine.SetFlight(false) end
