@@ -1,53 +1,38 @@
 --[[
     ========================================================================================
-    GOHUB V14 — DEFINITIVE UNIVERSAL ROBLOX SUITE (MASSIVE UPGRADE)
-    Target: Roblox Studio / Luau Engine / All PC & Mobile Standard Executors
-    Author: ANON (Engineered for dj)
+    GOHUB V13 — DEFINITIVE RAYFIELD & SHADER SUITE (MASSIVE UPGRADE)
+    Target: Roblox Studio / Luau Engine / Standard Executors
+    Author: Agente de Modificação da UI 6 (Sintetizador de Abas e Motores GoHub V13)
     
-    Complete Engine Architecture:
-      - R1: Audio & Music Engine 2.0 (PRIORITIZED)
-            BGM Playlist with Crossfade, Bass Boost DSP (+20dB EqualizerSoundEffect),
-            Tactical SFX with 6% Pitch Jitter, 3D Neon Orbital Visualizer,
-            Floor Beat-Drop Shockwaves, 2D Spectrum Equalizer HUD.
-      - R2: Graphics & Shaders 2.0
-            Dynamic 20Hz Raycast Autofocus DoF, Angular Velocity Motion Blur,
-            4 Cinematic Presets (Cyberpunk Neon, Sunset Noir, VHS Retro, Midnight Glow)
-            + Golden Hour, Geodesic Day/Night Cycle, Ceiling-Aware Particle Motes.
-      - R3: Advanced Movement & Physics 2.0
-            Spider / Wall Climb (Surface Normal Tangent Plane Projection),
-            Dual Grappling Hook (Spring + Winch Slingshot),
-            Bhop Strafe (Source Engine AirAccelerate with Ground Friction Bypass),
-            Omnidirectional Dash with Ghost Clones, Super Jump with HipHeight Compression.
-      - R4: Route Macros & Universal Auto-Collect
-            Live Route Recorder (Adaptive Deadband Sampling),
-            Continuous Loop Playback Engine (Tween & MoveTo),
-            Pathfinding dynamic obstacle avoidance & Anti-Stuck watchdog,
-            Universal Auto-Collect for Coins/Gems/Tokens via TouchTransmitter & ProximityPrompt.
-      - R5: UI/UX 2.0 & Mobile Floating Dock
-            Draggable Floating Capsule Dock with Touch/Mouse Edge Snapping,
-            Real-Time Telemetry HUD with Zero-Alloc Sparklines (FPS 1% Lows, Ping, Memory MB),
-            Dynamic Custom Crosshair with Velocity Spread & Procedural Hitmarkers with SFX.
-      - R6: Game Profiles & Murder Mystery 2 Suite 2.0
-            Closed-Form Quadratic Ballistic Interception Auto-Shoot with Ping Compensation,
-            2D Minimap Radar with Role-Colored Blips, Staring & Spectator Detection HUD,
-            Knife Throw Trajectory CPA Detection & Lateral Auto-Dodge,
-            Multi-Game Profile Loader (MM2, Blade Ball, Rivals, Brookhaven, Arsenal).
-      - R7: Physics Trolling & Fun Modules
-            Black Hole / Vortex Fling with Accretion Disc Spiral Kinematics,
-            100% Reversible Fake Death / Ragdoll (Motor6D Decouple + BallSocketConstraints),
-            Invisible Car & Kidnap Aura, Clone Runner Decoy with Stealth Cloak,
-            DropKick on 'K' with Anti-Recoil Stabilization.
-      - R8: Zero-Alloc Performance & Universal Executor Compatibility Layer
-            Recycled Scratch Buffers via table.clear, Static Pre-Allocation,
-            Highlight Adornee Pool capped at 24 instances, Weak Table Caching (__mode = "k"),
-            Full Polyfill Matrix (Synapse, Fluxus, Wave, Solara, Delta, Macsploit, gethui/CoreGui).
-      - 100% OF GOHUB V13 PRESERVED:
-            All 10 Original Tabs, 29 Sections, 91 Controls, 30 Preset Dances (DualEmoteDatabase),
-            8-Slot Editable Radial Wheel on 'C' with JSON Persistence,
-            Retractable Command Bar on ';' with 30+ Commands, All Hotkeys (2x W, 2x Space, K, C, X, R, M, ;).
+    Arquitetura de Síntese:
+      - Framework de Interface: Sirius Rayfield Library (V3 / Modern UI)
+      - Suporte Completo a 8 Abas Especializadas:
+          1. 'Universal'  : Speed Slider (16-300), Flight Toggle + Speed Slider, Noclip, Inf Jump,
+                            ClickTP, TP Tool, Server Hop, Rejoin.
+          2. 'Jogadores'  : Dropdown & Input Alvo, TP Alvo, Espectar/Restaurar, Drop Kick Fling [K],
+                            WalkFling, SpinFling, Fling Instantâneo, LoopFling, Anti-Fling.
+          3. 'Skins'      : Clonar Skin do Alvo, Aplicar por User ID, Headless, Korblox, Reset Skin.
+          4. 'MM2'        : Detecção Híbrida de Papéis (Remote + Inv + Inocentes Verdes), Coin ESP,
+                            Auto-Grab Gun, Hitboxes Expandidas.
+          5. 'Danças'     : Parar Danças [X], Slider de Velocidade, Radial Menu [C], Danças Customizadas
+                            (Nome, ID, Testar, Salvar, Deletar), Danças Pré-definidas.
+          6. 'Personagem' : Anti-Sit, SpinBot + Slider de Velocidade, Botão Respawn.
+          7. 'Waypoints'  : Adicionar Waypoint, Dropdown de Seleção, Teleportar, Deletar.
+          8. 'Comandos'   : Dicionário de Atalhos, Comandos Rápidos e Botão para Command Bar (;).
+      - Background Systems & Hotkeys 100% Preservados e Ativos:
+          • 2x 'W'       -> Sprint inteligente (25 SPS)
+          • 2x 'Espaço'  -> Alternar Voo Suave (70 SPS)
+          • 'R'          -> Alternar X-Ray (Transparência de Cenário)
+          • 'M'          -> Alternar MM2 Role ESP
+          • 'K'          -> Drop Kick Fling Instantâneo (Motor Avançado de Impulso 5000)
+          • 'C'          -> Roda Radial Circular de Emotes (Slots 1-8 + Teclas Numéricas 1-8)
+          • 'X'          -> Parar Dança Instantaneamente
+          • ';' ou '\''  -> Command Bar Retrátil Nativa (Dispatcher com 30+ Comandos)
+          • Anti-AFK     -> VirtualUser Heartbeat Hook no LocalPlayer.Idled
     ========================================================================================
 ]]
 
+-- Carregamento e Serviços
 if not game:IsLoaded() then
     pcall(function() game.Loaded:Wait() end)
 end
@@ -58,11 +43,10 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
-local Workspace = game:GetService("Workspace") or workspace
+local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 local VirtualUser = game:GetService("VirtualUser")
 local Debris = game:GetService("Debris")
-local PathfindingService = game:GetService("PathfindingService")
 
 local LocalPlayer = Players.LocalPlayer
 while not LocalPlayer do
@@ -75,10 +59,137 @@ while not Camera do
     task.wait(0.1)
     Camera = Workspace.CurrentCamera
 end
+local Mouse = LocalPlayer:GetMouse()
+
+-- Safe GuiRoot Discovery
+local function GetSafeGuiRoot()
+    local successHui, hui = pcall(function() return typeof(gethui) == "function" and gethui() end)
+    if successHui and hui then return hui end
+    
+    local successHui2, hui2 = pcall(function() return typeof(get_hidden_gui) == "function" and get_hidden_gui() end)
+    if successHui2 and hui2 then return hui2 end
+    
+    local successCore, core = pcall(function() return game:GetService("CoreGui") end)
+    if successCore and core then
+        local canParent = pcall(function()
+            local test = Instance.new("Folder")
+            test.Parent = core
+            test:Destroy()
+        end)
+        if canParent then return core end
+    end
+    
+    return LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui", 5)
+end
+
+local GuiRoot = GetSafeGuiRoot() or LocalPlayer:WaitForChild("PlayerGui")
+
+-- ====================================================================
+-- ESTADO GLOBAL DO GOHUB V13
+-- ====================================================================
+local HubState = {
+    Theme = {
+        Background = Color3.fromRGB(15, 15, 22),
+        Sidebar = Color3.fromRGB(22, 22, 32),
+        Card = Color3.fromRGB(28, 28, 40),
+        Accent = Color3.fromRGB(148, 0, 211),
+        AccentGlow = Color3.fromRGB(180, 50, 255),
+        Text = Color3.fromRGB(245, 245, 250),
+        TextDim = Color3.fromRGB(150, 150, 170),
+        Close = Color3.fromRGB(220, 60, 60),
+        Success = Color3.fromRGB(60, 220, 120),
+        Murderer = Color3.fromRGB(255, 40, 40),
+        Sheriff = Color3.fromRGB(40, 140, 255),
+        Innocent = Color3.fromRGB(40, 255, 120),
+        Border = Color3.fromRGB(148, 0, 211)
+    },
+    Movement = {
+        Speed = 16,
+        DefaultSpeed = 16,
+        SpeedActive = false,
+        FlightSpeed = 50,
+        FlightActive = false,
+        NoclipActive = false,
+        InfiniteJumpActive = false,
+        ClickTPActive = false
+    },
+    Combat = {
+        AimbotActive = false,
+        TargetPart = "Head",
+        FOV = 120,
+        Smoothness = 0.2,
+        TeamCheck = false,
+        VisibilityCheck = true,
+        FOVCircleVisible = true
+    },
+    Visuals = {
+        ShaderActive = false,
+        XRayActive = false,
+        FullbrightActive = false,
+        NoFogActive = false,
+        UniversalESP = false
+    },
+    MM2 = {
+        RoleESP = false,
+        CoinESP = false,
+        AutoGrabGun = false,
+        Hitboxes = false
+    },
+    Fling = {
+        Active = false,
+        WalkFling = false,
+        AntiFling = false,
+        LoopTarget = nil,
+        DropKickActive = false,
+        DropKickForce = 5000
+    },
+    Animation = {
+        CurrentTrack = nil,
+        Speed = 1
+    },
+    CustomDances = {},
+    Character = {
+        AntiSit = false,
+        SpinBot = false,
+        SpinSpeed = 30
+    },
+    Waypoints = {},
+    Skin = {
+        OriginalDesc = nil,
+        HeadlessActive = false,
+        KorbloxActive = false
+    },
+    Radial = {
+        Visible = false,
+        SelectedSlot = nil,
+        Slots = {
+            [1] = { Name = "Jamal (Principal)", ID = "131086670591743" },
+            [2] = { Name = "Passinho Fogo", ID = "101508054279219" },
+            [3] = { Name = "Floss", ID = "10714340543" },
+            [4] = { Name = "Breakdance (IY)", ID = "3333432454" },
+            [5] = { Name = "Pop & Lock (IY)", ID = "4555808220" },
+            [6] = { Name = "Hip Hop (IY)", ID = "4049037604" },
+            [7] = { Name = "SpiderTree", ID = "3361426436" },
+            [8] = { Name = "Spin Dance", ID = "3361481910" }
+        }
+    },
+    CmdBar = {
+        Prefix = ";",
+        Visible = false
+    },
+    SelectedPlayer = nil,
+    IsSpectating = false
+}
+
+-- ====================================================================
+
 
 -- ==============================================================================
--- 1. FOUNDATION & ZERO-ALLOC CORE (Milestone 1)
+-- GOHUB V14 ENGINES ARCHITECTURE (EMBEDDED SUITE)
 -- ==============================================================================
+
+-- 1. ZERO-ALLOC CORE & POLYFILL MATRIX (Milestone 1)
+do
 -- language: Lua, file: v14_core_zeroalloc.lua, runtime: Roblox Luau, target: GoHub V14 Foundation & Zero-Alloc Core
 -- ==============================================================================
 -- GOHUB V14 — UNIVERSAL SUITE: FOUNDATION & ZERO-ALLOC CORE
@@ -1916,11 +2027,11 @@ GoHubV14Core.FlagSanitizer = FlagSanitizer
 _G.GoHubV14Core = GoHubV14Core
 shared.GoHubV14Core = GoHubV14Core
 
--- [GoHubV14 Monolith Module Return] return GoHubV14Core
+-- [Module Return] return GoHubV14Core
+end
 
--- ==============================================================================
 -- 2. AUDIO & MUSIC ENGINE 2.0 (Milestone 2 - R1 PRIORITIZED)
--- ==============================================================================
+do
 -- language: Lua, file: v14_audio_engine.lua, runtime: Roblox Luau, target: GoHub V14 Audio & Music Engine 2.0
 -- ==============================================================================
 -- GOHUB V14 — UNIVERSAL SUITE: AUDIO & MUSIC ENGINE 2.0 (MILESTONE 2)
@@ -3353,11 +3464,11 @@ end
 _G.GoHubV14Audio = AudioEngine
 shared.GoHubV14Audio = AudioEngine
 
--- [GoHubV14 Monolith Module Return] return AudioEngine
+-- [Module Return] return AudioEngine
+end
 
--- ==============================================================================
 -- 3. GRAPHICS & SHADERS 2.0 (Milestone 3)
--- ==============================================================================
+do
 -- language: Lua, file: v14_shader_engine.lua, runtime: Roblox Luau, target: GoHub V14 Graphics & Shaders 2.0
 -- ==============================================================================
 -- GOHUB V14 — GRAPHICS & SHADERS 2.0 (MILESTONE 3)
@@ -5568,11 +5679,11 @@ if shared then
     shared.GoHub_ShaderEngine = ExportedModule
 end
 
--- [GoHubV14 Monolith Module Return] return LightingEngine
+-- [Module Return] return LightingEngine
+end
 
--- ==============================================================================
 -- 4. ADVANCED MOVEMENT & ROUTE MACROS (Milestone 4)
--- ==============================================================================
+do
 -- language: Lua, file: v14_movement_macros.lua, runtime: Roblox Luau, target: GoHub V14 Advanced Movement & Route Macros
 -- ==============================================================================
 -- GOHUB V14 — UNIVERSAL SUITE: ADVANCED MOVEMENT & ROUTE MACROS (MILESTONE 4)
@@ -7389,11 +7500,11 @@ if GlobalCore then
     GlobalCore.WaypointEngine = WaypointEngine
 end
 
--- [GoHubV14 Monolith Module Return] return exportTable
+-- [Module Return] return exportTable
+end
 
--- ==============================================================================
 -- 5. UI/UX 2.0, MM2 SUITE 2.0 & PHYSICS TROLLING (Milestone 5)
--- ==============================================================================
+do
 -- language: Lua, file: v14_game_trolling.lua, runtime: Roblox Luau, target: GoHub V14 UI/UX 2.0, MM2 Suite 2.0 & Physics Trolling
 -- ==============================================================================
 -- GOHUB V14 — UNIVERSAL SUITE: UI/UX 2.0, MM2 SUITE 2.0 & PHYSICS TROLLING
@@ -8309,17 +8420,2495 @@ GameTrollingModule.TrollingEngine = TrollingEngine
 rawset(_G, "GoHubV14GameTrolling", GameTrollingModule)
 rawset(shared, "GoHubV14GameTrolling", GameTrollingModule)
 
--- [GoHubV14 Monolith Module Return] return GameTrollingModule
+-- [Module Return] return GameTrollingModule
+end
 
--- ==============================================================================
--- 6. RAYFIELD UI V3 MASTER SYNTHESIS & TAB WIRING (100% V13 Parity + V14 Engines)
--- ==============================================================================
+-- POOL DE EVENTOS & CONEXÕES
+-- ====================================================================
+local ConnectionPool = {}
+
+local function RegisterLoop(tag, connection)
+    if ConnectionPool[tag] then
+        ConnectionPool[tag]:Disconnect()
+    end
+    ConnectionPool[tag] = connection
+end
+
+local function DropLoop(tag)
+    if ConnectionPool[tag] then
+        ConnectionPool[tag]:Disconnect()
+        ConnectionPool[tag] = nil
+    end
+end
+
+-- ====================================================================
+-- ANTI-AFK NATIVO
+-- ====================================================================
+RegisterLoop("AntiAFK_Loop", LocalPlayer.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
+end))
+
+-- ====================================================================
+-- TARGET PARSER DO INFINITE YIELD
+-- ====================================================================
+local TargetParser = {}
+
+function TargetParser.FindPlayers(query)
+    if not query or query == "" then return {} end
+    local q = query:lower()
+    local result = {}
+    local myChar = LocalPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+    if q == "me" then
+        return {LocalPlayer}
+    elseif q == "all" then
+        for _, p in ipairs(Players:GetPlayers()) do table.insert(result, p) end
+        return result
+    elseif q == "others" then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then table.insert(result, p) end
+        end
+        return result
+    elseif q == "random" then
+        local others = TargetParser.FindPlayers("others")
+        if #others > 0 then return {others[math.random(1, #others)]} end
+        return {}
+    elseif q == "nearest" then
+        if not myRoot then return {} end
+        local nearest, dist = nil, math.huge
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local d = (p.Character.HumanoidRootPart.Position - myRoot.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    nearest = p
+                end
+            end
+        end
+        return nearest and {nearest} or {}
+    end
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        local n = p.Name:lower()
+        local dn = p.DisplayName:lower()
+        if n:sub(1, #q) == q or dn:sub(1, #q) == q or n:find(q, 1, true) or dn:find(q, 1, true) then
+            table.insert(result, p)
+        end
+    end
+    return result
+end
+
+-- ====================================================================
+-- FÍSICA E MOVIMENTAÇÃO (FLIGHT, SPEED, NOCLIP, CLICKTP, INF JUMP)
+-- ====================================================================
+local MovementEngine = {}
+local bgInstance, bvInstance
+
+function MovementEngine.SetFlight(enabled)
+    HubState.Movement.FlightActive = enabled
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+    if not enabled or not hrp or not hum then
+        DropLoop("Flight_Render")
+        if bgInstance then bgInstance:Destroy(); bgInstance = nil end
+        if bvInstance then bvInstance:Destroy(); bvInstance = nil end
+        if hum then hum.PlatformStand = false end
+        return
+    end
+
+    if bgInstance then bgInstance:Destroy() end
+    if bvInstance then bvInstance:Destroy() end
+
+    bgInstance = Instance.new("BodyGyro")
+    bgInstance.P = 9e4
+    bgInstance.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bgInstance.CFrame = hrp.CFrame
+    bgInstance.Parent = hrp
+
+    bvInstance = Instance.new("BodyVelocity")
+    bvInstance.Velocity = Vector3.zero
+    bvInstance.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bvInstance.Parent = hrp
+
+    hum.PlatformStand = true
+
+    RegisterLoop("Flight_Render", RunService.RenderStepped:Connect(function()
+        if not HubState.Movement.FlightActive or not hrp or not hrp.Parent then
+            MovementEngine.SetFlight(false)
+            return
+        end
+
+        local cam = Workspace.CurrentCamera
+        bgInstance.CFrame = cam.CFrame
+
+        local moveDir = Vector3.zero
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            moveDir = moveDir - Vector3.new(0, 1, 0)
+        end
+
+        if moveDir.Magnitude > 0 then
+            bvInstance.Velocity = moveDir.Unit * HubState.Movement.FlightSpeed
+        else
+            bvInstance.Velocity = Vector3.zero
+        end
+    end))
+end
+
+function MovementEngine.ApplySpeed()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = HubState.Movement.SpeedActive and HubState.Movement.Speed or HubState.Movement.DefaultSpeed
+    end
+end
+
+RegisterLoop("Speed_Heartbeat", RunService.Heartbeat:Connect(function()
+    if HubState.Movement.SpeedActive then MovementEngine.ApplySpeed() end
+end))
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.4)
+    if HubState.Movement.SpeedActive then MovementEngine.ApplySpeed() end
+    if HubState.IsSpectating then
+        HubState.IsSpectating = false
+        Camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    end
+end)
+
+function MovementEngine.SetNoclip(enabled)
+    HubState.Movement.NoclipActive = enabled
+    if enabled then
+        RegisterLoop("Core_Noclip", RunService.Stepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
+            end
+        end))
+    else
+        DropLoop("Core_Noclip")
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then part.CanCollide = true end
+            end
+        end
+    end
+end
+
+function MovementEngine.SetInfiniteJump(enabled)
+    HubState.Movement.InfiniteJumpActive = enabled
+    if enabled then
+        RegisterLoop("Core_InfJump", UserInputService.JumpRequest:Connect(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+        end))
+    else
+        DropLoop("Core_InfJump")
+    end
+end
+
+function MovementEngine.SetClickTP(enabled)
+    HubState.Movement.ClickTPActive = enabled
+    if enabled then
+        RegisterLoop("Core_ClickTP", UserInputService.InputBegan:Connect(function(input, gpe)
+            if gpe then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp and Mouse.Hit then hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0)) end
+            end
+        end))
+    else
+        DropLoop("Core_ClickTP")
+    end
+end
+
+function MovementEngine.GiveTPTool()
+    local bp = LocalPlayer:FindFirstChildOfClass("Backpack")
+    if not bp or bp:FindFirstChild("GoHub TP Tool") then return end
+    local tool = Instance.new("Tool")
+    tool.Name = "GoHub TP Tool"
+    tool.RequiresHandle = false
+    tool.Activated:Connect(function()
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp and Mouse.Hit then hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0)) end
+    end)
+    tool.Parent = bp
+end
+
+function MovementEngine.ServerHop()
+    task.spawn(function()
+        local placeId = game.PlaceId
+        local api = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+        local success, res = pcall(function() return HttpService:JSONDecode(game:HttpGet(api)) end)
+        if success and res and res.data then
+            for _, srv in ipairs(res.data) do
+                if srv.playing < srv.maxPlayers and srv.id ~= game.JobId then
+                    TeleportService:TeleportToPlaceInstance(placeId, srv.id, LocalPlayer)
+                    return
+                end
+            end
+        end
+        TeleportService:Teleport(placeId, LocalPlayer)
+    end)
+end
+
+function MovementEngine.Rejoin()
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+end
+
+-- ====================================================================
+-- SISTEMA DE WAYPOINTS
+-- ====================================================================
+local WaypointEngine = {}
+
+function WaypointEngine.SaveCurrent(name)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false, "Personagem não encontrado" end
+    local wpName = (name and name ~= "") and name or ("Ponto_" .. (#HubState.Waypoints + 1))
+    table.insert(HubState.Waypoints, { Name = wpName, CFrame = hrp.CFrame })
+    return true, wpName
+end
+
+function WaypointEngine.TeleportTo(wp)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp and wp and wp.CFrame then
+        hrp.CFrame = wp.CFrame
+        return true
+    end
+    return false
+end
+
+function WaypointEngine.DeleteWaypoint(wpName)
+    for i = #HubState.Waypoints, 1, -1 do
+        if HubState.Waypoints[i].Name == wpName then
+            table.remove(HubState.Waypoints, i)
+            return true
+        end
+    end
+    return false
+end
+
+-- ====================================================================
+-- SISTEMA DE FLING (INFINITE YIELD ENGINE + DROP KICK AVANÇADO)
+-- ====================================================================
+local FlingEngine = {}
+
+function FlingEngine.ToggleWalkFling(enabled)
+    HubState.Fling.WalkFling = enabled
+    if not enabled then
+        DropLoop("WalkFling_Heartbeat")
+        MovementEngine.SetNoclip(false)
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+        return
+    end
+
+    MovementEngine.SetNoclip(true)
+    local movel = 0.1
+    RegisterLoop("WalkFling_Heartbeat", RunService.Heartbeat:Connect(function()
+        if not HubState.Fling.WalkFling then return end
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not (char and char.Parent and root and root.Parent) then return end
+
+        local vel = root.AssemblyLinearVelocity
+        root.AssemblyLinearVelocity = vel * 10000 + Vector3.new(0, 10000, 0)
+
+        RunService.RenderStepped:Wait()
+        if char and char.Parent and root and root.Parent then
+            root.AssemblyLinearVelocity = vel
+        end
+
+        RunService.Stepped:Wait()
+        if char and char.Parent and root and root.Parent then
+            root.AssemblyLinearVelocity = vel + Vector3.new(0, movel, 0)
+            movel = movel * -1
+        end
+    end))
+end
+
+function FlingEngine.ToggleSpinFling(enabled)
+    HubState.Fling.Active = enabled
+    if not enabled then
+        DropLoop("SpinFling_Pulse")
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local spin = hrp:FindFirstChild("GoHubFlingSpin")
+            if spin then spin:Destroy() end
+        end
+        return
+    end
+
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    if enabled then
+        for _, child in ipairs(char:GetDescendants()) do
+            if child:IsA("BasePart") then
+                child.CustomPhysicalProperties = PhysicalProperties.new(100, 0.3, 0.5)
+            end
+        end
+        MovementEngine.SetNoclip(true)
+        task.wait(0.1)
+
+        local spin = hrp:FindFirstChild("GoHubFlingSpin") or Instance.new("BodyAngularVelocity")
+        spin.Name = "GoHubFlingSpin"
+        spin.Parent = hrp
+        spin.MaxTorque = Vector3.new(0, math.huge, 0)
+        spin.P = math.huge
+        spin.AngularVelocity = Vector3.new(0, 99999, 0)
+
+        for _, v in ipairs(char:GetChildren()) do
+            if v:IsA("BasePart") then
+                v.Massless = true
+                v.AssemblyLinearVelocity = Vector3.zero
+            end
+        end
+
+        RegisterLoop("SpinFling_Pulse", RunService.Heartbeat:Connect(function()
+            if not HubState.Fling.Active or not spin or not spin.Parent then return end
+            spin.AngularVelocity = Vector3.new(0, 99999, 0)
+        end))
+    else
+        DropLoop("SpinFling_Pulse")
+        MovementEngine.SetNoclip(false)
+        if hrp:FindFirstChild("GoHubFlingSpin") then
+            hrp.GoHubFlingSpin:Destroy()
+        end
+        for _, v in ipairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5)
+                v.Massless = false
+                v.AssemblyLinearVelocity = Vector3.zero
+            elseif v:IsA("BodyAngularVelocity") and v.Name == "GoHubFlingSpin" then
+                v:Destroy()
+            end
+        end
+    end
+end
+
+function FlingEngine.FlingTarget(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then return end
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local tHrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not tHrp then return end
+
+    local origCF = hrp.CFrame
+    FlingEngine.ToggleSpinFling(true)
+
+    task.spawn(function()
+        local startTime = tick()
+        while tick() - startTime < 1.5 do
+            RunService.Heartbeat:Wait()
+            if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then break end
+            tHrp = targetPlayer.Character.HumanoidRootPart
+            hrp.CFrame = tHrp.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
+            hrp.AssemblyLinearVelocity = Vector3.new(9999, 9999, 9999)
+        end
+        FlingEngine.ToggleSpinFling(false)
+        task.wait(0.05)
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        hrp.CFrame = origCF
+    end)
+end
+
+function FlingEngine.LoopFling(targetPlayer)
+    HubState.Fling.LoopTarget = targetPlayer
+    if not targetPlayer then
+        DropLoop("LoopFling_Heartbeat")
+        FlingEngine.ToggleSpinFling(false)
+        return
+    end
+
+    FlingEngine.ToggleSpinFling(true)
+    RegisterLoop("LoopFling_Heartbeat", RunService.Heartbeat:Connect(function()
+        local target = HubState.Fling.LoopTarget
+        if not target or not target.Character then
+            FlingEngine.LoopFling(nil)
+            return
+        end
+        local tRoot = target.Character:FindFirstChild("HumanoidRootPart")
+        local myChar = LocalPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if tRoot and myRoot then
+            myRoot.CFrame = tRoot.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
+            myRoot.AssemblyLinearVelocity = Vector3.new(9999, 9999, 9999)
+        end
+    end))
+end
+
+function FlingEngine.ToggleAntiFling(enabled)
+    HubState.Fling.AntiFling = enabled
+    if enabled then
+        RegisterLoop("AntiFling_Loop", RunService.Stepped:Connect(function()
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    for _, part in ipairs(player.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            end
+        end))
+    else
+        DropLoop("AntiFling_Loop")
+    end
+end
+
+-- Motor Drop Kick Fling
+local dropKickAnimation = Instance.new("Animation")
+dropKickAnimation.AnimationId = "rbxassetid://133566007754001"
+local isDropKicking = false
+local dropKickActionId = 0
+
+function FlingEngine.PerformDropKick(customForce)
+    if isDropKicking then return end
+
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp or hum.Health <= 0 then return end
+
+    local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+    local leg = char:FindFirstChild("LeftLowerLeg") or char:FindFirstChild("Left Leg") or hrp
+
+    dropKickActionId = dropKickActionId + 1
+    local currentActionId = dropKickActionId
+    isDropKicking = true
+    HubState.Fling.DropKickActive = true
+
+    local origWalkSpeed = hum.WalkSpeed
+    local origAutoRotate = hum.AutoRotate
+
+    local track
+    local loadOk = pcall(function()
+        track = animator:LoadAnimation(dropKickAnimation)
+        track.Priority = Enum.AnimationPriority.Action
+    end)
+
+    if not loadOk or not track then
+        isDropKicking = false
+        HubState.Fling.DropKickActive = false
+        return
+    end
+
+    local tempConstraints = {}
+    for _, otherPlayer in ipairs(Players:GetPlayers()) do
+        if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+            for _, p1 in ipairs(char:GetDescendants()) do
+                if p1:IsA("BasePart") then
+                    for _, p2 in ipairs(otherPlayer.Character:GetDescendants()) do
+                        if p2:IsA("BasePart") then
+                            local con = Instance.new("NoCollisionConstraint")
+                            con.Part0 = p1
+                            con.Part1 = p2
+                            con.Parent = char
+                            table.insert(tempConstraints, con)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local function cleanupDropKick()
+        pcall(function()
+            if track and track.IsPlaying then track:Stop(0.15) end
+            if track then track:Destroy() end
+        end)
+        for _, con in ipairs(tempConstraints) do
+            pcall(function() con:Destroy() end)
+        end
+        table.clear(tempConstraints)
+        if hum and hum.Parent then
+            hum.WalkSpeed = origWalkSpeed
+            hum.AutoRotate = origAutoRotate
+            hum:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
+            hum.BreakJointsOnDeath = true
+            hum.PlatformStand = false
+            hum.Sit = false
+        end
+        if hrp and hrp.Parent then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+        if leg and leg.Parent then
+            leg.AssemblyLinearVelocity = Vector3.zero
+            leg.AssemblyAngularVelocity = Vector3.zero
+        end
+        isDropKicking = false
+        HubState.Fling.DropKickActive = false
+    end
+
+    hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+    hum.BreakJointsOnDeath = false
+    hum.AutoRotate = true
+
+    track:Play(0)
+
+    task.spawn(function()
+        local camera = Workspace.CurrentCamera
+        local force = customForce or HubState.Fling.DropKickForce or 5000
+        local upForce = force * 0.12
+        local animLen = track.Length
+        if animLen <= 0 then animLen = 1.2 end
+        local playDuration = math.max(0.2, animLen - 0.25)
+        local startTime = tick()
+
+        local camLook = camera and camera.CFrame.LookVector or hrp.CFrame.LookVector
+        local forwardDir = Vector3.new(camLook.X, 0, camLook.Z).Unit
+        if forwardDir.Magnitude < 0.1 then forwardDir = hrp.CFrame.LookVector end
+        local flingDir = (forwardDir * 2.5 + Vector3.new(0, 0.45, 0)).Unit
+
+        local lungeSpeed = math.max(origWalkSpeed * 1.8, 38)
+
+        while track.IsPlaying and (tick() - startTime < playDuration) do
+            if currentActionId ~= dropKickActionId or not char.Parent or not hrp.Parent or hum.Health <= 0 then
+                break
+            end
+
+            local moveDir = hum.MoveDirection
+            local currentForward = (moveDir.Magnitude > 0.05 and moveDir.Unit or forwardDir)
+            local currentY = math.clamp(hrp.AssemblyLinearVelocity.Y, -25, 15)
+            local safeLunge = currentForward * lungeSpeed + Vector3.new(0, currentY, 0)
+
+            hrp.AssemblyLinearVelocity = safeLunge
+            hrp.AssemblyAngularVelocity = Vector3.zero
+
+            if leg and leg.Parent then
+                leg.AssemblyLinearVelocity = safeLunge
+                leg.AssemblyAngularVelocity = Vector3.zero
+            end
+
+            local myPos = hrp.Position
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local tChar = player.Character
+                    local tRoot = tChar:FindFirstChild("HumanoidRootPart")
+                    local tHum = tChar:FindFirstChildOfClass("Humanoid")
+                    if tRoot and tHum and tHum.Health > 0 then
+                        local dist = (tRoot.Position - myPos).Magnitude
+                        if dist <= 13 then
+                            pcall(function()
+                                tHum.Sit = true
+                                tHum.PlatformStand = true
+                                tHum:ChangeState(Enum.HumanoidStateType.Physics)
+
+                                for _ = 1, 3 do
+                                    pcall(function() tRoot:RequestNetworkOwnership() end)
+                                end
+
+                                local targetLaunchVel = flingDir * force + Vector3.new(0, upForce, 0)
+
+                                for _, part in ipairs(tChar:GetDescendants()) do
+                                    if part:IsA("BasePart") then
+                                        part.AssemblyLinearVelocity = targetLaunchVel
+                                    end
+                                end
+
+                                local bv = tRoot:FindFirstChild("DropKickBV") or Instance.new("BodyVelocity")
+                                bv.Name = "DropKickBV"
+                                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                                bv.Velocity = targetLaunchVel
+                                bv.P = 1e6
+                                bv.Parent = tRoot
+                                Debris:AddItem(bv, 0.5)
+
+                                local bav = tRoot:FindFirstChild("DropKickBAV") or Instance.new("BodyAngularVelocity")
+                                bav.Name = "DropKickBAV"
+                                bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                                bav.AngularVelocity = Vector3.new(
+                                    math.random(-60, 60),
+                                    math.random(-60, 60),
+                                    math.random(-60, 60)
+                                )
+                                bav.P = 1e6
+                                bav.Parent = tRoot
+                                Debris:AddItem(bav, 0.5)
+
+                                tRoot.AssemblyLinearVelocity = targetLaunchVel
+                                tRoot.AssemblyAngularVelocity = Vector3.new(
+                                    math.random(-40, 40),
+                                    math.random(-40, 40),
+                                    math.random(-40, 40)
+                                )
+                            end)
+                        end
+                    end
+                end
+            end
+
+            RunService.Heartbeat:Wait()
+            if currentActionId ~= dropKickActionId or not char.Parent or not hrp.Parent then break end
+
+            if hrp.AssemblyLinearVelocity.Magnitude > (lungeSpeed + 25) then
+                hrp.AssemblyLinearVelocity = safeLunge
+                hrp.AssemblyAngularVelocity = Vector3.zero
+            end
+        end
+
+        cleanupDropKick()
+    end)
+end
+
+-- ====================================================================
+-- SISTEMA DE PERSONAGEM (ANTI-SIT, SPINBOT)
+-- ====================================================================
+local CharEngine = {}
+
+function CharEngine.ToggleAntiSit(enabled)
+    HubState.Character.AntiSit = enabled
+    if enabled then
+        RegisterLoop("Char_AntiSit", RunService.Heartbeat:Connect(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Sit then hum.Sit = false end
+        end))
+    else
+        DropLoop("Char_AntiSit")
+    end
+end
+
+function CharEngine.ToggleSpinBot(enabled)
+    HubState.Character.SpinBot = enabled
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    if enabled then
+        local spin = Instance.new("BodyAngularVelocity")
+        spin.Name = "GoHubSpinBot"
+        spin.MaxTorque = Vector3.new(0, math.huge, 0)
+        spin.AngularVelocity = Vector3.new(0, HubState.Character.SpinSpeed, 0)
+        spin.Parent = hrp
+    else
+        if hrp:FindFirstChild("GoHubSpinBot") then hrp.GoHubSpinBot:Destroy() end
+    end
+end
+
+-- ====================================================================
+-- ILUMINAÇÃO & VISUAIS (FULLBRIGHT, NOFOG, X-RAY)
+-- ====================================================================
+-- ====================================================================
+-- ILUMINAÇÃO, SHADERS REALISTAS & EFEITOS CINEMÁTICOS (GOLDEN HOUR)
+-- ====================================================================
+local LightingEngine = {}
+
+local PristineBaseline = {
+    Captured = false,
+    Brightness = 1,
+    ExposureCompensation = 0,
+    ClockTime = 14,
+    Ambient = Color3.fromRGB(128, 128, 128),
+    OutdoorAmbient = Color3.fromRGB(128, 128, 128),
+    FogEnd = 100000,
+    FogStart = 0,
+    FogColor = Color3.fromRGB(192, 192, 192),
+    Atmospheres = {},
+    OriginalSky = nil,
+    OriginalEffects = {}
+}
+
+local ActiveShaderInstances = {}
+local UIToggleElements = {}
+
+local function CapturePristineBaseline()
+    if PristineBaseline.Captured then return end
+
+    PristineBaseline.Brightness = Lighting.Brightness
+    PristineBaseline.ExposureCompensation = Lighting.ExposureCompensation
+    PristineBaseline.ClockTime = Lighting.ClockTime
+    PristineBaseline.Ambient = Lighting.Ambient
+    PristineBaseline.OutdoorAmbient = Lighting.OutdoorAmbient
+    PristineBaseline.FogEnd = Lighting.FogEnd
+    PristineBaseline.FogStart = Lighting.FogStart
+    PristineBaseline.FogColor = Lighting.FogColor
+
+    PristineBaseline.Atmospheres = {}
+    for _, obj in ipairs(Lighting:GetDescendants()) do
+        if obj:IsA("Atmosphere") then
+            PristineBaseline.Atmospheres[obj] = obj.Density
+        end
+    end
+
+    PristineBaseline.OriginalSky = nil
+    PristineBaseline.OriginalEffects = {}
+    for _, obj in ipairs(Lighting:GetChildren()) do
+        if obj:IsA("Sky") and not obj:GetAttribute("GoHubShader") then
+            PristineBaseline.OriginalSky = obj
+        elseif obj:IsA("PostEffect") and not obj:GetAttribute("GoHubShader") then
+            table.insert(PristineBaseline.OriginalEffects, {
+                Instance = obj,
+                OriginalEnabled = obj.Enabled
+            })
+        end
+    end
+
+    PristineBaseline.Captured = true
+end
+
+local function ReconcileLighting()
+    if not PristineBaseline.Captured then
+        CapturePristineBaseline()
+    end
+
+    local shaderOn = HubState.Visuals.ShaderActive
+    local fbOn = HubState.Visuals.FullbrightActive
+    local noFogOn = HubState.Visuals.NoFogActive
+
+    if fbOn then
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    else
+        Lighting.Ambient = PristineBaseline.Ambient
+        Lighting.OutdoorAmbient = PristineBaseline.OutdoorAmbient
+    end
+
+    if shaderOn then
+        Lighting.Brightness = 2.25
+        Lighting.ExposureCompensation = 0.1
+        Lighting.ClockTime = 17.55
+    elseif fbOn then
+        Lighting.Brightness = 2.0
+        Lighting.ExposureCompensation = PristineBaseline.ExposureCompensation
+        Lighting.ClockTime = 14.0
+    else
+        Lighting.Brightness = PristineBaseline.Brightness
+        Lighting.ExposureCompensation = PristineBaseline.ExposureCompensation
+        Lighting.ClockTime = PristineBaseline.ClockTime
+    end
+
+    if noFogOn then
+        Lighting.FogEnd = 1e6
+        Lighting.FogStart = 1e6
+        for _, obj in ipairs(Lighting:GetDescendants()) do
+            if obj:IsA("Atmosphere") then
+                obj.Density = 0
+            end
+        end
+    else
+        Lighting.FogEnd = PristineBaseline.FogEnd
+        Lighting.FogStart = PristineBaseline.FogStart
+        Lighting.FogColor = PristineBaseline.FogColor
+        for atm, origDensity in pairs(PristineBaseline.Atmospheres) do
+            if atm and atm.Parent then
+                atm.Density = origDensity
+            end
+        end
+    end
+end
+
+local ShaderPresets = {
+    GoldenHour = {
+        Skybox = {
+            SkyboxBk = "http://www.roblox.com/asset/?id=144933338",
+            SkyboxDn = "http://www.roblox.com/asset/?id=144931530",
+            SkyboxFt = "http://www.roblox.com/asset/?id=144933262",
+            SkyboxLf = "http://www.roblox.com/asset/?id=144933244",
+            SkyboxRt = "http://www.roblox.com/asset/?id=144933299",
+            SkyboxUp = "http://www.roblox.com/asset/?id=144931564",
+            StarCount = 5000,
+            SunAngularSize = 5
+        },
+        Bloom = {
+            Intensity = 0.3,
+            Size = 10,
+            Threshold = 0.8
+        },
+        Blur = {
+            Size = 5
+        },
+        ColorCorrection = {
+            Brightness = 0,
+            Contrast = 0.1,
+            Saturation = 0.25,
+            TintColor = Color3.fromRGB(255, 255, 255)
+        },
+        SunRays = {
+            Intensity = 0.1,
+            Spread = 0.8
+        },
+        Lighting = {
+            Brightness = 2.25,
+            ExposureCompensation = 0.1,
+            ClockTime = 17.55
+        }
+    }
+}
+
+local function CreateShaderEffects()
+    CapturePristineBaseline()
+
+    if PristineBaseline.OriginalSky and PristineBaseline.OriginalSky.Parent == Lighting then
+        PristineBaseline.OriginalSky.Parent = nil
+    end
+
+    for _, item in ipairs(PristineBaseline.OriginalEffects) do
+        if item.Instance and item.Instance.Parent then
+            pcall(function() item.Instance.Enabled = false end)
+        end
+    end
+
+    local preset = ShaderPresets.GoldenHour
+
+    local sky = Instance.new("Sky")
+    sky.Name = "GoHubShader_Sky"
+    sky:SetAttribute("GoHubShader", true)
+    sky.SkyboxBk = preset.Skybox.SkyboxBk
+    sky.SkyboxDn = preset.Skybox.SkyboxDn
+    sky.SkyboxFt = preset.Skybox.SkyboxFt
+    sky.SkyboxLf = preset.Skybox.SkyboxLf
+    sky.SkyboxRt = preset.Skybox.SkyboxRt
+    sky.SkyboxUp = preset.Skybox.SkyboxUp
+    sky.StarCount = preset.Skybox.StarCount
+    sky.SunAngularSize = preset.Skybox.SunAngularSize
+    sky.Parent = Lighting
+    ActiveShaderInstances["Sky"] = sky
+
+    local bloom = Instance.new("BloomEffect")
+    bloom.Name = "GoHubShader_Bloom"
+    bloom:SetAttribute("GoHubShader", true)
+    bloom.Intensity = preset.Bloom.Intensity
+    bloom.Size = preset.Bloom.Size
+    bloom.Threshold = preset.Bloom.Threshold
+    bloom.Parent = Lighting
+    ActiveShaderInstances["Bloom"] = bloom
+
+    local blur = Instance.new("BlurEffect")
+    blur.Name = "GoHubShader_Blur"
+    blur:SetAttribute("GoHubShader", true)
+    blur.Size = preset.Blur.Size
+    blur.Parent = Lighting
+    ActiveShaderInstances["Blur"] = blur
+
+    local cc = Instance.new("ColorCorrectionEffect")
+    cc.Name = "GoHubShader_ColorCorrection"
+    cc:SetAttribute("GoHubShader", true)
+    cc.Brightness = preset.ColorCorrection.Brightness
+    cc.Contrast = preset.ColorCorrection.Contrast
+    cc.Saturation = preset.ColorCorrection.Saturation
+    cc.TintColor = preset.ColorCorrection.TintColor
+    cc.Parent = Lighting
+    ActiveShaderInstances["ColorCorrection"] = cc
+
+    local sunRays = Instance.new("SunRaysEffect")
+    sunRays.Name = "GoHubShader_SunRays"
+    sunRays:SetAttribute("GoHubShader", true)
+    sunRays.Intensity = preset.SunRays.Intensity
+    sunRays.Spread = preset.SunRays.Spread
+    sunRays.Parent = Lighting
+    ActiveShaderInstances["SunRays"] = sunRays
+
+    ReconcileLighting()
+end
+
+local function RemoveShaderEffects()
+    for name, instance in pairs(ActiveShaderInstances) do
+        if instance and instance.Parent then
+            pcall(function() instance:Destroy() end)
+        end
+    end
+    ActiveShaderInstances = {}
+
+    for _, obj in ipairs(Lighting:GetChildren()) do
+        if obj:GetAttribute("GoHubShader") then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+
+    if PristineBaseline.Captured then
+        if PristineBaseline.OriginalSky and PristineBaseline.OriginalSky.Parent == nil then
+            PristineBaseline.OriginalSky.Parent = Lighting
+        end
+
+        for _, item in ipairs(PristineBaseline.OriginalEffects) do
+            if item.Instance and item.Instance.Parent then
+                pcall(function() item.Instance.Enabled = item.OriginalEnabled end)
+            end
+        end
+    end
+
+    ReconcileLighting()
+end
+
+function LightingEngine.ToggleShader(enabled)
+    HubState.Visuals.ShaderActive = enabled
+    if enabled then
+        CreateShaderEffects()
+    else
+        RemoveShaderEffects()
+    end
+end
+
+function LightingEngine.ToggleFullbright(enabled)
+    HubState.Visuals.FullbrightActive = enabled
+    ReconcileLighting()
+end
+
+function LightingEngine.ToggleNoFog(enabled)
+    HubState.Visuals.NoFogActive = enabled
+    ReconcileLighting()
+end
+
+-- ====================================================================
+-- COMBAT ENGINE (AIMBOT COM RAYCAST, FOV CHECK & CAMERA LERP)
+-- ====================================================================
+local CombatEngine = {}
+
+local function RaycastCheck(part, targetChar)
+    local origin = Camera.CFrame.Position
+    local dir = (part.Position - origin)
+    local params = RaycastParams.new()
+    params.FilterType = RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+    params.IgnoreWater = true
+
+    local result = Workspace:Raycast(origin, dir, params)
+    if result then return result.Instance:IsDescendantOf(targetChar) end
+    return true
+end
+
+function CombatEngine.GetBestTarget()
+    local best = nil
+    local minDist = HubState.Combat.FOV
+    local mouseLoc = Vector2.new(Mouse.X, Mouse.Y)
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local isTeammate = HubState.Combat.TeamCheck and (p.Team == LocalPlayer.Team)
+            if not isTeammate then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                local part = p.Character:FindFirstChild(HubState.Combat.TargetPart)
+                if hum and hum.Health > 0 and part then
+                    local sPoint, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local sPos = Vector2.new(sPoint.X, sPoint.Y)
+                        local dist = (sPos - mouseLoc).Magnitude
+                        if dist < minDist then
+                            if not HubState.Combat.VisibilityCheck or RaycastCheck(part, p.Character) then
+                                minDist = dist
+                                best = part
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+-- FOV Circle Visual Renderer (Drawing API ou Frame Fallback)
+local DrawingFOVCircle = nil
+pcall(function()
+    if typeof(Drawing) == "table" and typeof(Drawing.new) == "function" then
+        DrawingFOVCircle = Drawing.new("Circle")
+        DrawingFOVCircle.Thickness = 1.5
+        DrawingFOVCircle.NumSides = 64
+        DrawingFOVCircle.Filled = false
+        DrawingFOVCircle.Transparency = 1
+        DrawingFOVCircle.Visible = false
+    end
+end)
+
+local GuiFOVCircle = nil
+if not DrawingFOVCircle then
+    pcall(function()
+        local fovGui = Instance.new("ScreenGui")
+        fovGui.Name = "GoHub_FOV_Gui"
+        fovGui.ResetOnSpawn = false
+        pcall(function() if syn and syn.protect_gui then syn.protect_gui(fovGui) end end)
+        fovGui.Parent = GuiRoot
+
+        GuiFOVCircle = Instance.new("Frame")
+        GuiFOVCircle.Name = "FOVCircleFrame"
+        GuiFOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+        GuiFOVCircle.BackgroundTransparency = 1
+        GuiFOVCircle.Visible = false
+        GuiFOVCircle.Parent = fovGui
+
+        local corner = Instance.new("UICorner", GuiFOVCircle)
+        corner.CornerRadius = UDim.new(1, 0)
+        local stroke = Instance.new("UIStroke", GuiFOVCircle)
+        stroke.Thickness = 1.5
+        stroke.Color = HubState.Theme.Accent
+    end)
+end
+
+RegisterLoop("Aimbot_Render", RunService.RenderStepped:Connect(function()
+    local cam = Workspace.CurrentCamera or Camera
+    local mousePos = UserInputService:GetMouseLocation()
+    local fovRadius = HubState.Combat.FOV
+    local showFOV = HubState.Combat.AimbotActive and HubState.Combat.FOVCircleVisible
+
+    if DrawingFOVCircle then
+        pcall(function()
+            DrawingFOVCircle.Position = mousePos
+            DrawingFOVCircle.Radius = fovRadius
+            DrawingFOVCircle.Color = HubState.Theme.Accent
+            DrawingFOVCircle.Visible = showFOV
+        end)
+    elseif GuiFOVCircle then
+        pcall(function()
+            GuiFOVCircle.Position = UDim2.new(0, mousePos.X, 0, mousePos.Y)
+            GuiFOVCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+            GuiFOVCircle.Visible = showFOV
+        end)
+    end
+
+    if not HubState.Combat.AimbotActive then return end
+    if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then return end
+
+    local target = CombatEngine.GetBestTarget()
+    if target and cam then
+        local camCF = cam.CFrame
+        local targetCF = CFrame.new(camCF.Position, target.Position)
+        cam.CFrame = camCF:Lerp(targetCF, math.clamp(HubState.Combat.Smoothness, 0.05, 1))
+    end
+end))
+
+local XRayEngine = {}
+local SavedTransparencies = {}
+
+function XRayEngine.Toggle(enabled)
+    HubState.Visuals.XRayActive = enabled
+    if enabled then
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and not (LocalPlayer.Character and obj:IsDescendantOf(LocalPlayer.Character)) then
+                local isPlayerPart = false
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p.Character and obj:IsDescendantOf(p.Character) then isPlayerPart = true; break end
+                end
+                if not isPlayerPart and obj.Transparency < 0.5 then
+                    SavedTransparencies[obj] = obj.Transparency
+                    obj.Transparency = 0.55
+                end
+            end
+        end
+    else
+        for obj, orig in pairs(SavedTransparencies) do
+            if obj and obj.Parent then obj.Transparency = orig end
+        end
+        table.clear(SavedTransparencies)
+    end
+end
+
+-- ====================================================================
+-- UNIVERSAL ESP (CHAMS ROXO DE ALTO RENDIMENTO COM CACHE DE HIGHLIGHT)
+-- ====================================================================
+local UniversalESPFolder = Instance.new("Folder")
+UniversalESPFolder.Name = "GoHub_Universal_ESP"
+pcall(function() UniversalESPFolder.Parent = GuiRoot end)
+
+local UniversalESPCache = {}
+
+local function ClearPlayerESP(p)
+    if UniversalESPCache[p] then
+        pcall(function() UniversalESPCache[p]:Destroy() end)
+        UniversalESPCache[p] = nil
+    end
+end
+
+local function UpdateUniversalESP(enabled)
+    HubState.Visuals.UniversalESP = enabled
+    if not enabled then
+        DropLoop("Universal_ESP_Loop")
+        for p, hl in pairs(UniversalESPCache) do
+            if hl and hl.Parent then pcall(function() hl:Destroy() end) end
+        end
+        table.clear(UniversalESPCache)
+        pcall(function() UniversalESPFolder:ClearAllChildren() end)
+        return
+    end
+
+    RegisterLoop("Universal_ESP_Loop", RunService.Heartbeat:Connect(function()
+        if not HubState.Visuals.UniversalESP then return end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    local hl = UniversalESPCache[p]
+                    if not hl or not hl.Parent then
+                        ClearPlayerESP(p)
+                        local newHl = (HubState.AcquireHighlight and HubState.AcquireHighlight(p.Character, 1, HubState.Theme.Accent or Color3.fromRGB(148, 0, 211), Color3.fromRGB(255, 255, 255))) or (_G.HighlightPool and _G.HighlightPool.AcquireHighlight and _G.HighlightPool.AcquireHighlight(p.Character, 1, HubState.Theme.Accent or Color3.fromRGB(148, 0, 211), Color3.fromRGB(255, 255, 255)))
+                        newHl.Name = "UniESP_" .. p.Name
+                        newHl.Adornee = p.Character
+                        newHl.FillColor = HubState.Theme.Accent or Color3.fromRGB(148, 0, 211)
+                        newHl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        newHl.FillTransparency = 0.45
+                        newHl.OutlineTransparency = 0.1
+                        newHl.Parent = UniversalESPFolder
+                        UniversalESPCache[p] = newHl
+                    elseif hl.Adornee ~= p.Character then
+                        hl.Adornee = p.Character
+                    end
+                else
+                    ClearPlayerESP(p)
+                end
+            else
+                ClearPlayerESP(p)
+            end
+        end
+
+        for p, _ in pairs(UniversalESPCache) do
+            if not p.Parent then ClearPlayerESP(p) end
+        end
+    end))
+end
+
+-- ====================================================================
+-- MURDER MYSTERY 2 SUITE COMPLETO
+-- ====================================================================
+local MM2Engine = {}
+local MM2RoleFolder = Instance.new("Folder")
+MM2RoleFolder.Name = "GoHub_MM2_Roles"
+pcall(function() MM2RoleFolder.Parent = GuiRoot end)
+
+local MM2CoinFolder = Instance.new("Folder")
+MM2CoinFolder.Name = "GoHub_MM2_Coins"
+pcall(function() MM2CoinFolder.Parent = GuiRoot end)
+
+local MM2HitboxFolder = Instance.new("Folder")
+MM2HitboxFolder.Name = "GoHub_MM2_Hitboxes"
+pcall(function() MM2HitboxFolder.Parent = GuiRoot end)
+
+local MM2RoleDataCache = {}
+local lastRemotePoll = 0
+local remoteListenersSetup = false
+
+local function SetupMM2RemoteListeners()
+    if remoteListenersSetup then return end
+    remoteListenersSetup = true
+
+    pcall(function()
+        local repStorage = game:GetService("ReplicatedStorage")
+        local remotesFolder = repStorage:FindFirstChild("Remotes")
+        local gameplayFolder = remotesFolder and remotesFolder:FindFirstChild("Gameplay")
+
+        local function attachRemoteEvent(rem)
+            if rem and rem:IsA("RemoteEvent") then
+                rem.OnClientEvent:Connect(function(...)
+                    local args = {...}
+                    for _, arg in ipairs(args) do
+                        if type(arg) == "table" then
+                            for k, v in pairs(arg) do
+                                local targetName = type(k) == "string" and k or (type(v) == "table" and (v.Player or v.Name or v.Username))
+                                local roleStr = type(v) == "table" and (v.Role or v.role) or (type(v) == "string" and v)
+                                if targetName and roleStr and type(roleStr) == "string" then
+                                    local lowerRole = roleStr:lower()
+                                    if lowerRole:find("murd") then
+                                        MM2RoleDataCache[tostring(targetName):lower()] = "MURDER"
+                                    elseif lowerRole:find("sher") then
+                                        MM2RoleDataCache[tostring(targetName):lower()] = "SHERIFE"
+                                    elseif lowerRole:find("hero") then
+                                        MM2RoleDataCache[tostring(targetName):lower()] = "HEROI"
+                                    elseif lowerRole:find("innoc") then
+                                        MM2RoleDataCache[tostring(targetName):lower()] = "INOCENTE"
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+
+        if gameplayFolder then
+            for _, child in ipairs(gameplayFolder:GetChildren()) do attachRemoteEvent(child) end
+            gameplayFolder.ChildAdded:Connect(attachRemoteEvent)
+        end
+        if remotesFolder then
+            for _, child in ipairs(remotesFolder:GetChildren()) do attachRemoteEvent(child) end
+        end
+    end)
+end
+
+local function PollMM2Remotes()
+    local now = tick()
+    if now - lastRemotePoll < 1.0 then return end
+    lastRemotePoll = now
+
+    pcall(function()
+        local repStorage = game:GetService("ReplicatedStorage")
+        local remotesFolder = repStorage:FindFirstChild("Remotes")
+        local gameplayFolder = remotesFolder and remotesFolder:FindFirstChild("Gameplay")
+        local getPlayerData = (gameplayFolder and gameplayFolder:FindFirstChild("GetPlayerData"))
+            or (remotesFolder and remotesFolder:FindFirstChild("GetPlayerData"))
+            or repStorage:FindFirstChild("GetPlayerData", true)
+
+        if getPlayerData and getPlayerData:IsA("RemoteFunction") then
+            local data = getPlayerData:InvokeServer()
+            if type(data) == "table" then
+                for k, v in pairs(data) do
+                    local playerName = type(k) == "string" and k or (type(v) == "table" and (v.Player or v.Name or v.Username))
+                    local roleStr = type(v) == "table" and (v.Role or v.role) or (type(v) == "string" and v)
+                    if playerName and roleStr and type(roleStr) == "string" then
+                        local lower = roleStr:lower()
+                        if lower:find("murd") then
+                            MM2RoleDataCache[tostring(playerName):lower()] = "MURDER"
+                        elseif lower:find("sher") then
+                            MM2RoleDataCache[tostring(playerName):lower()] = "SHERIFE"
+                        elseif lower:find("hero") then
+                            MM2RoleDataCache[tostring(playerName):lower()] = "HEROI"
+                        elseif lower:find("innoc") then
+                            MM2RoleDataCache[tostring(playerName):lower()] = "INOCENTE"
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function DetectRole(p)
+    if not p or not p.Character then return nil end
+
+    local pNameLower = p.Name:lower()
+    local pDisplayNameLower = p.DisplayName:lower()
+    local cachedRole = MM2RoleDataCache[pNameLower] or MM2RoleDataCache[pDisplayNameLower]
+
+    if cachedRole == "MURDER" then
+        return "MURDER", HubState.Theme.Murderer
+    elseif cachedRole == "SHERIFE" then
+        return "SHERIFE", HubState.Theme.Sheriff
+    elseif cachedRole == "HEROI" then
+        return "HEROI", Color3.fromRGB(255, 215, 0)
+    end
+
+    local hasKnife, hasGun = false, false
+    local function checkItem(item)
+        if item:IsA("Tool") then
+            local n = item.Name:lower()
+            if n == "knife" or n:find("scythe") or n:find("pitchfork") or n:find("blade") or n:find("dagger") or n:find("sword") then
+                hasKnife = true
+            end
+            if n == "gun" or n == "revolver" or n:find("blaster") or n:find("luger") or n:find("pistol") or n:find("shotgun") then
+                hasGun = true
+            end
+        end
+    end
+
+    for _, item in ipairs(p.Character:GetChildren()) do checkItem(item) end
+    local bp = p:FindFirstChild("Backpack")
+    if bp then for _, item in ipairs(bp:GetChildren()) do checkItem(item) end end
+
+    if hasKnife then
+        MM2RoleDataCache[pNameLower] = "MURDER"
+        return "MURDER", HubState.Theme.Murderer
+    end
+
+    if hasGun then
+        MM2RoleDataCache[pNameLower] = "SHERIFE"
+        return "SHERIFE", HubState.Theme.Sheriff
+    end
+
+    return "INOCENTE", HubState.Theme.Innocent
+end
+
+function MM2Engine.ToggleRoleESP(enabled)
+    HubState.MM2.RoleESP = enabled
+    if not enabled then
+        DropLoop("MM2_RoleLoop")
+        MM2RoleFolder:ClearAllChildren()
+        table.clear(MM2RoleDataCache)
+        return
+    end
+
+    SetupMM2RemoteListeners()
+    local playerESP = {}
+
+    local function cleanupESP(p)
+        local data = playerESP[p]
+        if data then
+            pcall(function() data.Highlight:Destroy() end)
+            pcall(function() data.Billboard:Destroy() end)
+            playerESP[p] = nil
+        end
+    end
+
+    RegisterLoop("MM2_RoleLoop", RunService.Heartbeat:Connect(function()
+        if not HubState.MM2.RoleESP then return end
+        PollMM2Remotes()
+
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Head") then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local role, color = DetectRole(p)
+                    local data = playerESP[p]
+
+                    if not data or not data.Highlight.Parent or not data.Billboard.Parent then
+                        cleanupESP(p)
+
+                        local hl = (HubState.AcquireHighlight and HubState.AcquireHighlight(p.Character, 2, color, color)) or (_G.HighlightPool and _G.HighlightPool.AcquireHighlight and _G.HighlightPool.AcquireHighlight(p.Character, 2, color, color))
+                        hl.Name = "MM2_HL_" .. p.Name
+                        hl.Adornee = p.Character
+                        hl.FillColor = color
+                        hl.OutlineColor = color
+                        hl.FillTransparency = (role == "INOCENTE") and 0.65 or 0.4
+                        hl.OutlineTransparency = 0.1
+                        hl.Parent = MM2RoleFolder
+
+                        local bgui = Instance.new("BillboardGui")
+                        bgui.Name = "MM2_BB_" .. p.Name
+                        bgui.Adornee = p.Character.Head
+                        bgui.Size = UDim2.new(0, 120, 0, 40)
+                        bgui.StudsOffset = Vector3.new(0, 2.5, 0)
+                        bgui.AlwaysOnTop = true
+                        bgui.Parent = MM2RoleFolder
+
+                        local txt = Instance.new("TextLabel")
+                        txt.Size = UDim2.new(1, 0, 1, 0)
+                        txt.BackgroundTransparency = 1
+                        txt.TextColor3 = color
+                        txt.Font = Enum.Font.GothamBold
+                        txt.TextSize = 13
+                        txt.TextStrokeTransparency = 0.2
+                        txt.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                        txt.Text = "[" .. role .. "] " .. p.DisplayName
+                        txt.Parent = bgui
+
+                        playerESP[p] = { Highlight = hl, Billboard = bgui, Label = txt, CurrentRole = role }
+                    else
+                        if data.Highlight.Adornee ~= p.Character then
+                            data.Highlight.Adornee = p.Character
+                            data.Billboard.Adornee = p.Character.Head
+                        end
+
+                        if data.CurrentRole ~= role then
+                            data.CurrentRole = role
+                            data.Highlight.FillColor = color
+                            data.Highlight.OutlineColor = color
+                            data.Highlight.FillTransparency = (role == "INOCENTE") and 0.65 or 0.4
+                            data.Label.TextColor3 = color
+                            data.Label.Text = "[" .. role .. "] " .. p.DisplayName
+                        end
+                    end
+                else
+                    cleanupESP(p)
+                end
+            else
+                cleanupESP(p)
+            end
+        end
+
+        for p, _ in pairs(playerESP) do
+            if not p.Parent then cleanupESP(p) end
+        end
+    end))
+end
+
+function MM2Engine.ToggleCoinESP(enabled)
+    HubState.MM2.CoinESP = enabled
+    if not enabled then
+        DropLoop("MM2_CoinLoop")
+        MM2CoinFolder:ClearAllChildren()
+        return
+    end
+
+    RegisterLoop("MM2_CoinLoop", RunService.Heartbeat:Connect(function()
+        if not HubState.MM2.CoinESP then return end
+        MM2CoinFolder:ClearAllChildren()
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and (obj.Name == "Coin_Server" or obj.Name == "Coin" or obj.Name == "CoinContainer") then
+                local hl = (HubState.AcquireHighlight and HubState.AcquireHighlight(obj, 3, Color3.fromRGB(255, 215, 0), Color3.fromRGB(255, 255, 255))) or (_G.HighlightPool and _G.HighlightPool.AcquireHighlight and _G.HighlightPool.AcquireHighlight(obj, 3, Color3.fromRGB(255, 215, 0), Color3.fromRGB(255, 255, 255)))
+                hl.Adornee = obj
+                hl.FillColor = Color3.fromRGB(255, 215, 0)
+                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                hl.FillTransparency = 0.3
+            end
+        end
+    end))
+end
+
+function MM2Engine.ToggleAutoGrabGun(enabled)
+    HubState.MM2.AutoGrabGun = enabled
+    if not enabled then
+        DropLoop("MM2_AutoGunLoop")
+        return
+    end
+
+    RegisterLoop("MM2_AutoGunLoop", RunService.Heartbeat:Connect(function()
+        if not HubState.MM2.AutoGrabGun then return end
+        local gunDrop = Workspace:FindFirstChild("GunDrop")
+        if gunDrop and gunDrop:IsA("BasePart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = gunDrop.CFrame
+        end
+    end))
+end
+
+function MM2Engine.ToggleHitboxes(enabled)
+    HubState.MM2.Hitboxes = enabled
+    if not enabled then
+        DropLoop("MM2_HitboxLoop")
+        MM2HitboxFolder:ClearAllChildren()
+        return
+    end
+
+    RegisterLoop("MM2_HitboxLoop", RunService.Heartbeat:Connect(function()
+        if not HubState.MM2.Hitboxes then return end
+        MM2HitboxFolder:ClearAllChildren()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local box = Instance.new("BoxHandleAdornment", MM2HitboxFolder)
+                box.Adornee = p.Character.HumanoidRootPart
+                box.Size = Vector3.new(3.5, 4.5, 3.5)
+                box.Color3 = Color3.fromRGB(255, 0, 0)
+                box.Transparency = 0.6
+                box.AlwaysOnTop = true
+            end
+        end
+    end))
+end
+
+-- ====================================================================
+-- SKIN & MORPH SUITE
+-- ====================================================================
+local SkinEngine = {}
+
+function SkinEngine.ScanAndFireRemote(targetUserId)
+    local found = false
+    local remotesToTest = {}
+    
+    local function checkObj(obj)
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            local n = obj.Name:lower()
+            if n:find("cloth") or n:find("outfit") or n:find("avatar") or n:find("morph") 
+               or n:find("wear") or n:find("char") or n:find("skin") or n:find("costume") 
+               or n:find("dress") or n:find("bundle") or n:find("apply") then
+                table.insert(remotesToTest, obj)
+            end
+        end
+    end
+
+    pcall(function()
+        for _, obj in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do checkObj(obj) end
+        for _, obj in ipairs(game:GetService("JointsService"):GetDescendants()) do checkObj(obj) end
+    end)
+
+    for _, rem in ipairs(remotesToTest) do
+        local ok = pcall(function()
+            if rem:IsA("RemoteEvent") then
+                if targetUserId then
+                    rem:FireServer(targetUserId)
+                    rem:FireServer("Character", targetUserId)
+                    rem:FireServer("Morph", targetUserId)
+                end
+            elseif rem:IsA("RemoteFunction") then
+                if targetUserId then
+                    task.spawn(function() pcall(function() rem:InvokeServer(targetUserId) end) end)
+                end
+            end
+        end)
+        if ok then found = true end
+    end
+    return found
+end
+
+function SkinEngine.ClonePlayerSkin(targetPlayer)
+    if not targetPlayer then return false, "Jogador não especificado" end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return false, "Humanoid não encontrado" end
+
+    if not HubState.Skin.OriginalDesc then
+        pcall(function() HubState.Skin.OriginalDesc = hum:GetAppliedDescription() end)
+    end
+
+    local targetUserId = targetPlayer.UserId
+    SkinEngine.ScanAndFireRemote(targetUserId)
+
+    local successDesc, desc = pcall(function()
+        return Players:GetHumanoidDescriptionFromUserId(targetUserId)
+    end)
+
+    if successDesc and desc then
+        pcall(function() hum:ApplyDescription(desc) end)
+        return true, "Skin clonada com sucesso de @" .. targetPlayer.Name
+    end
+
+    local targetChar = targetPlayer.Character
+    if targetChar then
+        pcall(function()
+            local targetShirt = targetChar:FindFirstChildOfClass("Shirt")
+            local targetPants = targetChar:FindFirstChildOfClass("Pants")
+            local targetBodyColors = targetChar:FindFirstChildOfClass("BodyColors")
+
+            local myShirt = char:FindFirstChildOfClass("Shirt") or Instance.new("Shirt", char)
+            local myPants = char:FindFirstChildOfClass("Pants") or Instance.new("Pants", char)
+
+            if targetShirt then myShirt.ShirtTemplate = targetShirt.ShirtTemplate end
+            if targetPants then myPants.PantsTemplate = targetPants.PantsTemplate end
+            if targetBodyColors then
+                local myBC = char:FindFirstChildOfClass("BodyColors") or Instance.new("BodyColors", char)
+                myBC.HeadColor3 = targetBodyColors.HeadColor3
+                myBC.TorsoColor3 = targetBodyColors.TorsoColor3
+                myBC.LeftArmColor3 = targetBodyColors.LeftArmColor3
+                myBC.RightArmColor3 = targetBodyColors.RightArmColor3
+                myBC.LeftLegColor3 = targetBodyColors.LeftLegColor3
+                myBC.RightLegColor3 = targetBodyColors.RightLegColor3
+            end
+        end)
+        return true, "Roupas clonadas diretamente de @" .. targetPlayer.Name
+    end
+
+    return false, "Falha ao obter dados do personagem"
+end
+
+function SkinEngine.ApplyByUserId(userId)
+    local numId = tonumber(userId)
+    if not numId then return false, "ID inválido" end
+    
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return false, "Humanoid não encontrado" end
+
+    if not HubState.Skin.OriginalDesc then
+        pcall(function() HubState.Skin.OriginalDesc = hum:GetAppliedDescription() end)
+    end
+
+    SkinEngine.ScanAndFireRemote(numId)
+
+    local success, desc = pcall(function()
+        return Players:GetHumanoidDescriptionFromUserId(numId)
+    end)
+    if success and desc then
+        pcall(function() hum:ApplyDescription(desc) end)
+        return true, "Skin aplicada para o ID: " .. tostring(numId)
+    else
+        return false, "Não foi possível carregar o ID do avatar"
+    end
+end
+
+function SkinEngine.ToggleHeadless(enabled)
+    HubState.Skin.HeadlessActive = enabled
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = enabled and 1 or 0
+        local face = head:FindFirstChildOfClass("Decal")
+        if face then face.Transparency = enabled and 1 or 0 end
+        for _, child in ipairs(head:GetChildren()) do
+            if child:IsA("SpecialMesh") then
+                child.Scale = enabled and Vector3.new(0.001, 0.001, 0.001) or Vector3.new(1.25, 1.25, 1.25)
+            end
+        end
+    end
+end
+
+function SkinEngine.ToggleKorblox(enabled)
+    HubState.Skin.KorbloxActive = enabled
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local rLeg = char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg")
+    local rLower = char:FindFirstChild("RightLowerLeg")
+    local rFoot = char:FindFirstChild("RightFoot")
+
+    if enabled then
+        if rLeg and rLeg:IsA("BasePart") then rLeg.Transparency = 1 end
+        if rLower and rLower:IsA("BasePart") then rLower.Transparency = 1 end
+        if rFoot and rFoot:IsA("BasePart") then rFoot.Transparency = 1 end
+
+        local attachPart = char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg") or char:FindFirstChild("HumanoidRootPart")
+        if attachPart and not char:FindFirstChild("KorbloxLegMesh") then
+            local korbloxLeg = Instance.new("Part")
+            korbloxLeg.Name = "KorbloxLegMesh"
+            korbloxLeg.CanCollide = false
+            korbloxLeg.Massless = true
+            korbloxLeg.CFrame = attachPart.CFrame
+            korbloxLeg.Parent = char
+
+            local specialMesh = Instance.new("SpecialMesh", korbloxLeg)
+            specialMesh.MeshId = "rbxassetid://902942093"
+            specialMesh.TextureId = "rbxassetid://902843398"
+            specialMesh.Scale = Vector3.new(1, 1, 1)
+
+            local weld = Instance.new("WeldConstraint", korbloxLeg)
+            weld.Part0 = korbloxLeg
+            weld.Part1 = attachPart
+        end
+    else
+        if rLeg and rLeg:IsA("BasePart") then rLeg.Transparency = 0 end
+        if rLower and rLower:IsA("BasePart") then rLower.Transparency = 0 end
+        if rFoot and rFoot:IsA("BasePart") then rFoot.Transparency = 0 end
+
+        local existing = char:FindFirstChild("KorbloxLegMesh")
+        if existing then existing:Destroy() end
+    end
+end
+
+function SkinEngine.ResetAvatar()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum and HubState.Skin.OriginalDesc then
+        pcall(function() hum:ApplyDescription(HubState.Skin.OriginalDesc) end)
+    end
+    SkinEngine.ToggleHeadless(false)
+    SkinEngine.ToggleKorblox(false)
+end
+
+-- ====================================================================
+-- MOTOR DE ANIMAÇÕES & DANÇAS (JAMAL VIRAL, IY & PRESETS)
+-- ====================================================================
+local AnimationEngine = {}
+
+local DualEmoteDatabase = {
+    ["Passinho do Jamal (Principal)"] = { R15 = "rbxassetid://131086670591743" },
+    ["Passinho do Jamal (Fogo Fogo)"] = { R15 = "rbxassetid://101508054279219" },
+    ["Passinho do Jamal (Kitsi UGC)"] = { R15 = "rbxassetid://90852521137542" },
+    ["Passinho do Jamal (Mandrake)"] = { R15 = "rbxassetid://95654893473488" },
+    ["Passinho do Jamal (Dance Moves)"] = { R15 = "rbxassetid://121260976461862" },
+
+    ["IY Dança 1 (Breakdance)"] = { R15 = "rbxassetid://3333432454" },
+    ["IY Dança 2 (Pop & Lock)"] = { R15 = "rbxassetid://4555808220" },
+    ["IY Dança 3 (Hip Hop / Hype)"] = { R15 = "rbxassetid://4049037604" },
+    ["IY Dança 4 (Wave Step)"] = { R15 = "rbxassetid://4555782893" },
+    ["IY Dança 5 (Freestyle)"] = { R15 = "rbxassetid://10214311282" },
+
+    ["Floss"] = { R15 = "rbxassetid://10714340543", R6 = "rbxassetid://5917459365" },
+    ["Dab"] = { R15 = "rbxassetid://10714107111", R6 = "rbxassetid://248263260" },
+    ["Dizzy (SpiderTree)"] = { R15 = "rbxassetid://3361426436", R6 = "rbxassetid://182435998" },
+    ["Swoosh"] = { R15 = "rbxassetid://3361487920", R6 = "rbxassetid://182436842" },
+    ["Spin Dance"] = { R15 = "rbxassetid://3361481910", R6 = "rbxassetid://182436935" },
+    ["Hyped"] = { R15 = "rbxassetid://3695333486", R6 = "rbxassetid://182435998" },
+    ["Twirl"] = { R15 = "rbxassetid://3361499912", R6 = "rbxassetid://182436842" },
+    ["Tilt Walk"] = { R15 = "rbxassetid://3361438942", R6 = "rbxassetid://182435998" },
+    ["Dança Clássica 1"] = { R15 = "rbxassetid://507771019", R6 = "rbxassetid://182435998" },
+    ["Dança Clássica 2"] = { R15 = "rbxassetid://507776043", R6 = "rbxassetid://182436842" },
+    ["Dança Clássica 3"] = { R15 = "rbxassetid://507777268", R6 = "rbxassetid://182436935" },
+    ["Cheer (Torcer)"] = { R15 = "rbxassetid://507770677", R6 = "rbxassetid://128777973" },
+    ["Wave (Acenar)"] = { R15 = "rbxassetid://10714346580", R6 = "rbxassetid://128777973" },
+    ["Point (Apontar)"] = { R15 = "rbxassetid://10714347258", R6 = "rbxassetid://128853357" },
+    ["Laugh (Rir)"] = { R15 = "rbxassetid://10714344445", R6 = "rbxassetid://129423131" },
+    ["Shrug (Ombros)"] = { R15 = "rbxassetid://10714348656", R6 = "rbxassetid://182435998" },
+    ["Stadium (Estádio)"] = { R15 = "rbxassetid://3361440866", R6 = "rbxassetid://182436842" },
+    ["Tilt (Curvar)"] = { R15 = "rbxassetid://3361464908", R6 = "rbxassetid://182435998" },
+    ["Spasm (Spasm Dance)"] = { R15 = "rbxassetid://3361474812", R6 = "rbxassetid://248263260" },
+    ["Zombie (Dança Zumbi)"] = { R15 = "rbxassetid://3361413867", R6 = "rbxassetid://182436935" }
+}
+
+function AnimationEngine.Stop()
+    if HubState.Animation.CurrentTrack then
+        pcall(function() HubState.Animation.CurrentTrack:Stop() end)
+        HubState.Animation.CurrentTrack = nil
+    end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+            if track.Priority == Enum.AnimationPriority.Action4 then
+                pcall(function() track:Stop() end)
+            end
+        end
+    end
+end
+
+function AnimationEngine.SetSpeed(spd)
+    HubState.Animation.Speed = tonumber(spd) or 1
+    if HubState.Animation.CurrentTrack then
+        pcall(function() HubState.Animation.CurrentTrack:AdjustSpeed(HubState.Animation.Speed) end)
+    end
+end
+
+function AnimationEngine.PlayRaw(rawId, emoteName)
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    AnimationEngine.Stop()
+
+    local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+    local cleanId = tostring(rawId):gsub("%D", "")
+    local track = nil
+
+    -- Pipeline 1: Animation Instance direta
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://" .. cleanId
+    local s1, t1 = pcall(function() return animator:LoadAnimation(anim) end)
+    if s1 and t1 then track = t1 end
+
+    -- Pipeline 2: GetObjects para unpack de UGC / Bundles
+    if not track or (track and track.Length == 0) then
+        local sObjs, objs = pcall(function() return game:GetObjects("rbxassetid://" .. cleanId) end)
+        if sObjs and objs and #objs > 0 then
+            for _, obj in ipairs(objs) do
+                local found = (obj:IsA("Animation") and obj) or obj:FindFirstChildOfClass("Animation", true)
+                if found and found.AnimationId and found.AnimationId ~= "" then
+                    local s2, t2 = pcall(function() return animator:LoadAnimation(found) end)
+                    if s2 and t2 then track = t2; break end
+                end
+            end
+        end
+    end
+
+    -- Pipeline 3: Fallback via HumanoidDescription
+    if not track and emoteName then
+        pcall(function()
+            local desc = hum:FindFirstChildOfClass("HumanoidDescription") or hum:GetAppliedDescription()
+            if desc then
+                desc:AddEmote(emoteName, tonumber(cleanId))
+                hum:PlayEmoteAsync(emoteName)
+            end
+        end)
+    end
+
+    if track then
+        track.Priority = Enum.AnimationPriority.Action4
+        track.Looped = true
+        track:Play()
+        local currentSpd = HubState.Animation.Speed or 1
+        pcall(function() track:AdjustSpeed(currentSpd) end)
+        HubState.Animation.CurrentTrack = track
+    end
+end
+
+function AnimationEngine.Play(emoteName)
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    local isR15 = (hum.RigType == Enum.HumanoidRigType.R15)
+    local entry = DualEmoteDatabase[emoteName]
+    if not entry then
+        for name, data in pairs(DualEmoteDatabase) do
+            if name:lower():find(emoteName:lower(), 1, true) then
+                entry = data
+                emoteName = name
+                break
+            end
+        end
+    end
+    if not entry then
+        for _, custom in ipairs(HubState.CustomDances) do
+            if custom.Name:lower():find(emoteName:lower(), 1, true) then
+                AnimationEngine.PlayRaw(custom.ID, custom.Name)
+                return
+            end
+        end
+    end
+    if not entry then return end
+
+    local targetId = isR15 and entry.R15 or entry.R6
+    if not targetId and isR15 then targetId = entry.R15
+    elseif not targetId and not isR15 then targetId = entry.R6 or entry.R15 end
+
+    if targetId then AnimationEngine.PlayRaw(targetId, emoteName) end
+end
+
+function AnimationEngine.SaveCustomDance(name, rawId)
+    if not name or name:gsub("%s+", "") == "" then return false, "Nome inválido" end
+    if not rawId or rawId:gsub("%s+", "") == "" then return false, "ID inválido" end
+
+    local cleanId = tostring(rawId):gsub("%D", "")
+    if cleanId == "" then return false, "ID numérico não encontrado" end
+
+    for i = #HubState.CustomDances, 1, -1 do
+        if HubState.CustomDances[i].Name:lower() == name:lower() then
+            table.remove(HubState.CustomDances, i)
+        end
+    end
+
+    table.insert(HubState.CustomDances, { Name = name, ID = cleanId })
+
+    if writefile then
+        pcall(function()
+            writefile("gohub_custom_dances.json", HttpService:JSONEncode(HubState.CustomDances))
+        end)
+    end
+    return true, cleanId
+end
+
+function AnimationEngine.DeleteCustomDance(nameOrIndex)
+    if type(nameOrIndex) == "number" then
+        if HubState.CustomDances[nameOrIndex] then
+            table.remove(HubState.CustomDances, nameOrIndex)
+            if writefile then
+                pcall(function() writefile("gohub_custom_dances.json", HttpService:JSONEncode(HubState.CustomDances)) end)
+            end
+            return true
+        end
+    elseif type(nameOrIndex) == "string" then
+        for i = #HubState.CustomDances, 1, -1 do
+            if HubState.CustomDances[i].Name:lower() == nameOrIndex:lower() then
+                table.remove(HubState.CustomDances, i)
+                if writefile then
+                    pcall(function() writefile("gohub_custom_dances.json", HttpService:JSONEncode(HubState.CustomDances)) end)
+                end
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function AnimationEngine.LoadSavedDances()
+    pcall(function()
+        if typeof(isfile) == "function" and typeof(readfile) == "function" and isfile("gohub_custom_dances.json") then
+            local raw = readfile("gohub_custom_dances.json")
+            local data = HttpService:JSONDecode(raw)
+            if type(data) == "table" then HubState.CustomDances = data end
+        end
+    end)
+end
+AnimationEngine.LoadSavedDances()
+
+local DefaultRadialSlots = {
+    [1] = { Name = "Jamal (Principal)", ID = "131086670591743" },
+    [2] = { Name = "Passinho Fogo", ID = "101508054279219" },
+    [3] = { Name = "Floss", ID = "10714340543" },
+    [4] = { Name = "Breakdance (IY)", ID = "3333432454" },
+    [5] = { Name = "Pop & Lock (IY)", ID = "4555808220" },
+    [6] = { Name = "Hip Hop (IY)", ID = "4049037604" },
+    [7] = { Name = "SpiderTree", ID = "3361426436" },
+    [8] = { Name = "Spin Dance", ID = "3361481910" }
+}
+
+function AnimationEngine.SaveRadialSlots()
+    pcall(function()
+        if typeof(writefile) == "function" then
+            local payload = HttpService:JSONEncode(HubState.Radial.Slots)
+            writefile("gohub_radial_slots.json", payload)
+        end
+    end)
+end
+
+function AnimationEngine.LoadRadialSlots()
+    pcall(function()
+        if typeof(isfile) == "function" and typeof(readfile) == "function" and isfile("gohub_radial_slots.json") then
+            local raw = readfile("gohub_radial_slots.json")
+            local data = HttpService:JSONDecode(raw)
+            if type(data) == "table" then
+                for i = 1, 8 do
+                    local slotEntry = data[tostring(i)] or data[i]
+                    if slotEntry and type(slotEntry) == "table" then
+                        HubState.Radial.Slots[i] = {
+                            Name = tostring(slotEntry.Name or "(Vazio)"),
+                            ID = slotEntry.ID and tostring(slotEntry.ID) or nil
+                        }
+                    end
+                end
+            end
+        end
+    end)
+end
+AnimationEngine.LoadRadialSlots()
+
+function AnimationEngine.SetRadialSlot(slotNum, name, id)
+    slotNum = tonumber(slotNum)
+    if not slotNum or slotNum < 1 or slotNum > 8 then return false, "Slot inválido (1 a 8)" end
+    HubState.Radial.Slots[slotNum] = {
+        Name = tostring(name or "(Vazio)"),
+        ID = id and tostring(id) or nil
+    }
+    AnimationEngine.SaveRadialSlots()
+    return true
+end
+
+function AnimationEngine.ResetRadialSlots()
+    for i = 1, 8 do
+        HubState.Radial.Slots[i] = {
+            Name = DefaultRadialSlots[i].Name,
+            ID = DefaultRadialSlots[i].ID
+        }
+    end
+    AnimationEngine.SaveRadialSlots()
+end
+
+function AnimationEngine.GetRadialEmotes()
+    local list = {}
+    for i = 1, 8 do
+        local slotData = HubState.Radial.Slots[i]
+        if slotData and slotData.ID and slotData.ID ~= "" then
+            table.insert(list, slotData)
+        else
+            table.insert(list, { Name = "(Vazio)", ID = nil })
+        end
+    end
+    return list
+end
+
+-- ====================================================================
+-- RODA RADIAL CIRCULAR DE EMOTES (ROBLOX NATIVE WHEEL — TECLA 'C')
+-- ====================================================================
+local RadialBackdrop = Instance.new("Frame")
+RadialBackdrop.Name = "GoHubRadialBackdrop"
+RadialBackdrop.Size = UDim2.new(1, 0, 1, 0)
+RadialBackdrop.Position = UDim2.new(0, 0, 0, 0)
+RadialBackdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+RadialBackdrop.BackgroundTransparency = 1
+RadialBackdrop.Visible = false
+RadialBackdrop.ZIndex = 200
+
+local RadialWheel = Instance.new("Frame")
+RadialWheel.Name = "RadialWheel"
+RadialWheel.Size = UDim2.new(0, 0, 0, 0)
+RadialWheel.Position = UDim2.new(0.5, 0, 0.5, 0)
+RadialWheel.AnchorPoint = Vector2.new(0.5, 0.5)
+RadialWheel.BackgroundColor3 = HubState.Theme.Sidebar
+RadialWheel.BackgroundTransparency = 0.15
+RadialWheel.BorderSizePixel = 0
+RadialWheel.ZIndex = 201
+RadialWheel.Parent = RadialBackdrop
+
+Instance.new("UICorner", RadialWheel).CornerRadius = UDim.new(1, 0)
+local WheelStroke = Instance.new("UIStroke", RadialWheel)
+WheelStroke.Color = HubState.Theme.AccentGlow
+WheelStroke.Thickness = 2.5
+
+local WheelCenterBadge = Instance.new("Frame")
+WheelCenterBadge.Size = UDim2.new(0, 75, 0, 75)
+WheelCenterBadge.Position = UDim2.new(0.5, 0, 0.5, 0)
+WheelCenterBadge.AnchorPoint = Vector2.new(0.5, 0.5)
+WheelCenterBadge.BackgroundColor3 = HubState.Theme.Card
+WheelCenterBadge.ZIndex = 203
+WheelCenterBadge.Parent = RadialWheel
+Instance.new("UICorner", WheelCenterBadge).CornerRadius = UDim.new(1, 0)
+
+local WheelCenterLabel = Instance.new("TextLabel")
+WheelCenterLabel.Size = UDim2.new(1, 0, 1, 0)
+WheelCenterLabel.BackgroundTransparency = 1
+WheelCenterLabel.Font = Enum.Font.GothamBold
+WheelCenterLabel.Text = "GOHUB\nEMOTES"
+WheelCenterLabel.TextColor3 = HubState.Theme.AccentGlow
+WheelCenterLabel.TextSize = 11
+WheelCenterLabel.ZIndex = 204
+WheelCenterLabel.Parent = WheelCenterBadge
+
+local SlotsContainer = Instance.new("Frame")
+SlotsContainer.Size = UDim2.new(1, 0, 1, 0)
+SlotsContainer.BackgroundTransparency = 1
+SlotsContainer.ZIndex = 202
+SlotsContainer.Parent = RadialWheel
+
+local CurrentRadialEmotes = {}
+
+local function ToggleRadialMenu(forceState)
+    local state = (forceState ~= nil) and forceState or not HubState.Radial.Visible
+    HubState.Radial.Visible = state
+
+    if state then
+        SlotsContainer:ClearAllChildren()
+        CurrentRadialEmotes = AnimationEngine.GetRadialEmotes()
+
+        local radius = 110
+        for i = 1, 8 do
+            local emoteData = CurrentRadialEmotes[i]
+            local angleDeg = (i - 1) * 45 - 90
+            local angleRad = math.rad(angleDeg)
+            local cosA, sinA = math.cos(angleRad), math.sin(angleRad)
+
+            local slotBtn = Instance.new("TextButton")
+            slotBtn.Name = "Slot_" .. i
+            slotBtn.Size = UDim2.new(0, 84, 0, 48)
+            slotBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+            slotBtn.Position = UDim2.new(0.5, cosA * radius, 0.5, sinA * radius)
+            slotBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+            slotBtn.BackgroundTransparency = 0.4
+            slotBtn.Text = ""
+            slotBtn.AutoButtonColor = false
+            slotBtn.ZIndex = 205
+            slotBtn.Parent = SlotsContainer
+
+            Instance.new("UICorner", slotBtn).CornerRadius = UDim.new(0, 8)
+            local slotStroke = Instance.new("UIStroke", slotBtn)
+            slotStroke.Color = Color3.fromRGB(60, 60, 80)
+            slotStroke.Thickness = 1
+
+            local numBadge = Instance.new("TextLabel")
+            numBadge.Size = UDim2.new(0, 18, 0, 18)
+            numBadge.Position = UDim2.new(0, 4, 0, 4)
+            numBadge.BackgroundColor3 = HubState.Theme.Accent
+            numBadge.Font = Enum.Font.GothamBold
+            numBadge.Text = tostring(i)
+            numBadge.TextColor3 = Color3.fromRGB(255, 255, 255)
+            numBadge.TextSize = 10
+            numBadge.ZIndex = 206
+            numBadge.Parent = slotBtn
+            Instance.new("UICorner", numBadge).CornerRadius = UDim.new(1, 0)
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, -24, 1, -8)
+            label.Position = UDim2.new(0, 22, 0, 4)
+            label.BackgroundTransparency = 1
+            label.Font = Enum.Font.GothamSemibold
+            label.Text = emoteData and emoteData.Name or "(Vazio)"
+            label.TextColor3 = emoteData and HubState.Theme.Text or HubState.Theme.TextDim
+            label.TextSize = 10
+            label.TextWrapped = true
+            label.TextTruncate = Enum.TextTruncate.AtEnd
+            label.ZIndex = 206
+            label.Parent = slotBtn
+
+            slotBtn.MouseButton1Click:Connect(function()
+                if emoteData and emoteData.ID and emoteData.ID ~= "" then
+                    AnimationEngine.PlayRaw(emoteData.ID, emoteData.Name)
+                end
+                ToggleRadialMenu(false)
+            end)
+        end
+
+        RadialBackdrop.Visible = true
+        RadialWheel.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(RadialBackdrop, TweenInfo.new(0.22), { BackgroundTransparency = 0.4 }):Play()
+        TweenService:Create(RadialWheel, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 350, 0, 350)
+        }):Play()
+    else
+        TweenService:Create(RadialBackdrop, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
+        local closeTween = TweenService:Create(RadialWheel, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0)
+        })
+        closeTween:Play()
+        task.delay(0.22, function()
+            if not HubState.Radial.Visible then RadialBackdrop.Visible = false end
+        end)
+    end
+end
+
+RadialBackdrop.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local mousePos = Vector2.new(input.Position.X, input.Position.Y)
+        local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        local dist = (mousePos - centerPos).Magnitude
+        if dist > 175 then ToggleRadialMenu(false) end
+    end
+end)
+
+-- ====================================================================
+-- COMMAND BAR RETRÁTIL DO INFINITE YIELD
+-- ====================================================================
+local CmdBarScreen = Instance.new("ScreenGui")
+CmdBarScreen.Name = "GoHub_CmdBar_Screen"
+CmdBarScreen.ResetOnSpawn = false
+CmdBarScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() CmdBarScreen.Parent = GuiRoot end)
+RadialBackdrop.Parent = CmdBarScreen
+
+local CmdBarFrame = Instance.new("Frame")
+CmdBarFrame.Name = "GoHubCmdBar"
+CmdBarFrame.Size = UDim2.new(0, 480, 0, 42)
+CmdBarFrame.Position = UDim2.new(0.5, -240, 0, -60)
+CmdBarFrame.BackgroundColor3 = HubState.Theme.Background
+CmdBarFrame.BorderSizePixel = 0
+CmdBarFrame.ZIndex = 220
+CmdBarFrame.Parent = CmdBarScreen
+
+Instance.new("UICorner", CmdBarFrame).CornerRadius = UDim.new(0, 8)
+local CmdStroke = Instance.new("UIStroke", CmdBarFrame)
+CmdStroke.Color = HubState.Theme.Accent
+CmdStroke.Thickness = 1.5
+
+local CmdPrefixLabel = Instance.new("TextLabel")
+CmdPrefixLabel.Size = UDim2.new(0, 30, 1, 0)
+CmdPrefixLabel.BackgroundTransparency = 1
+CmdPrefixLabel.Font = Enum.Font.GothamBold
+CmdPrefixLabel.Text = HubState.CmdBar.Prefix
+CmdPrefixLabel.TextColor3 = HubState.Theme.AccentGlow
+CmdPrefixLabel.TextSize = 16
+CmdPrefixLabel.ZIndex = 221
+CmdPrefixLabel.Parent = CmdBarFrame
+
+local CmdInput = Instance.new("TextBox")
+CmdInput.Size = UDim2.new(1, -40, 1, 0)
+CmdInput.Position = UDim2.new(0, 30, 0, 0)
+CmdInput.BackgroundTransparency = 1
+CmdInput.Font = Enum.Font.GothamSemibold
+CmdInput.PlaceholderText = "Digite um comando... (ex: fly, tp fer, speed 50, fling random, kick)"
+CmdInput.PlaceholderColor3 = HubState.Theme.TextDim
+CmdInput.Text = ""
+CmdInput.TextColor3 = HubState.Theme.Text
+CmdInput.TextSize = 13
+CmdInput.TextXAlignment = Enum.TextXAlignment.Left
+CmdInput.ClearTextOnFocus = false
+CmdInput.ZIndex = 221
+CmdInput.Parent = CmdBarFrame
+
+local function ToggleCmdBar(forceState)
+    local state = (forceState ~= nil) and forceState or not HubState.CmdBar.Visible
+    HubState.CmdBar.Visible = state
+    if state then
+        CmdBarFrame.Visible = true
+        TweenService:Create(CmdBarFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, -240, 0, 20)
+        }):Play()
+        task.wait(0.1)
+        CmdInput:CaptureFocus()
+    else
+        TweenService:Create(CmdBarFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Position = UDim2.new(0.5, -240, 0, -60)
+        }):Play()
+        CmdInput:ReleaseFocus()
+    end
+end
+
+local function DispatchCommand(rawText)
+    if not rawText or rawText == "" then return end
+    local args = rawText:split(" ")
+    local cmd = args[1]:lower()
+    table.remove(args, 1)
+
+    if cmd == "fly" then MovementEngine.SetFlight(true)
+    elseif cmd == "unfly" then MovementEngine.SetFlight(false)
+    elseif cmd == "speed" or cmd == "ws" then
+        local spd = tonumber(args[1]) or 32
+        HubState.Movement.Speed = spd
+        HubState.Movement.SpeedActive = true
+        MovementEngine.ApplySpeed()
+    elseif cmd == "unspeed" then
+        HubState.Movement.SpeedActive = false
+        MovementEngine.ApplySpeed()
+    elseif cmd == "noclip" then MovementEngine.SetNoclip(true)
+    elseif cmd == "clip" then MovementEngine.SetNoclip(false)
+    elseif cmd == "infjump" then MovementEngine.SetInfiniteJump(true)
+    elseif cmd == "uninfjump" then MovementEngine.SetInfiniteJump(false)
+    elseif cmd == "clicktp" then MovementEngine.SetClickTP(true)
+    elseif cmd == "unclicktp" then MovementEngine.SetClickTP(false)
+    elseif cmd == "tptool" then MovementEngine.GiveTPTool()
+    elseif cmd == "tp" or cmd == "goto" then
+        local targetName = args[1]
+        local found = TargetParser.FindPlayers(targetName)
+        if #found > 0 and found[1].Character and found[1].Character:FindFirstChild("HumanoidRootPart") then
+            local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myHrp then myHrp.CFrame = found[1].Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0) end
+        end
+    elseif cmd == "shader" or cmd == "rtx" or cmd == "graphics" then
+        local sub = args[1] and args[1]:lower()
+        if sub == "on" or sub == "true" or sub == "1" then
+            LightingEngine.ToggleShader(true)
+        elseif sub == "off" or sub == "false" or sub == "0" then
+            LightingEngine.ToggleShader(false)
+        else
+            LightingEngine.ToggleShader(not HubState.Visuals.ShaderActive)
+        end
+    elseif cmd == "unshader" or cmd == "noshader" or cmd == "unrtx" then
+        LightingEngine.ToggleShader(false)
+    elseif cmd == "dropkick" or cmd == "kick" or cmd == "k" or cmd == "flingkick" then
+        local force = tonumber(args[1])
+        FlingEngine.PerformDropKick(force)
+    elseif cmd == "fling" then
+        local targetName = args[1]
+        if targetName then
+            local found = TargetParser.FindPlayers(targetName)
+            if #found > 0 then FlingEngine.FlingTarget(found[1]) end
+        else
+            FlingEngine.ToggleSpinFling(true)
+        end
+    elseif cmd == "unfling" then
+        FlingEngine.ToggleSpinFling(false)
+        FlingEngine.ToggleWalkFling(false)
+        FlingEngine.LoopFling(nil)
+    elseif cmd == "walkfling" then FlingEngine.ToggleWalkFling(true)
+    elseif cmd == "unwalkfling" then FlingEngine.ToggleWalkFling(false)
+    elseif cmd == "antifling" then FlingEngine.ToggleAntiFling(true)
+    elseif cmd == "unantifling" then FlingEngine.ToggleAntiFling(false)
+    elseif cmd == "loopfling" then
+        local targetName = args[1]
+        local found = TargetParser.FindPlayers(targetName)
+        if #found > 0 then FlingEngine.LoopFling(found[1]) end
+    elseif cmd == "unloopfling" then FlingEngine.LoopFling(nil)
+    elseif cmd == "fullbright" or cmd == "fb" then LightingEngine.ToggleFullbright(true)
+    elseif cmd == "unfullbright" or cmd == "unfb" then LightingEngine.ToggleFullbright(false)
+    elseif cmd == "nofog" then LightingEngine.ToggleNoFog(true)
+    elseif cmd == "dance" then
+        local emoteName = args[1]
+        if emoteName then
+            if tonumber(emoteName) then AnimationEngine.PlayRaw(emoteName, "Custom_" .. emoteName)
+            else AnimationEngine.Play(emoteName) end
+        end
+    elseif cmd == "stopdance" or cmd == "undance" or cmd == "x" then AnimationEngine.Stop()
+    elseif cmd == "animspeed" or cmd == "dancespeed" then
+        local spd = tonumber(args[1]) or 1
+        AnimationEngine.SetSpeed(spd)
+    elseif cmd == "antisit" then CharEngine.ToggleAntiSit(true)
+    elseif cmd == "unantisit" then CharEngine.ToggleAntiSit(false)
+    elseif cmd == "spin" then CharEngine.ToggleSpinBot(true)
+    elseif cmd == "unspin" then CharEngine.ToggleSpinBot(false)
+    elseif cmd == "xray" or cmd == "r" then XRayEngine.Toggle(true)
+    elseif cmd == "unxray" or cmd == "unr" then XRayEngine.Toggle(false)
+    elseif cmd == "roles" or cmd == "mm2" or cmd == "m" then MM2Engine.ToggleRoleESP(not HubState.MM2.RoleESP)
+    elseif cmd == "unroles" or cmd == "unmm2" then MM2Engine.ToggleRoleESP(false)
+    elseif cmd == "respawn" or cmd == "refresh" then
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.Health = 0 end
+    elseif cmd == "serverhop" or cmd == "shop" then MovementEngine.ServerHop()
+    elseif cmd == "rejoin" or cmd == "rj" then MovementEngine.Rejoin()
+    elseif cmd == "setslot" or cmd == "slot" then
+    local slotNum = tonumber(args[1])
+    local targetVal = args[2]
+    if slotNum and slotNum >= 1 and slotNum <= 8 and targetVal then
+        local id = targetVal:match("%d+")
+        local name = "Slot " .. slotNum
+        if not id and DualEmoteDatabase[targetVal] then
+            local entry = DualEmoteDatabase[targetVal]
+            id = (entry.R15 or entry.R6 or ""):gsub("rbxassetid://", "")
+            name = targetVal
+        end
+        if id then
+            AnimationEngine.SetRadialSlot(slotNum, name, id)
+            SafeNotify({ Title = "Slot " .. slotNum, Content = "Configurado para " .. name, Duration = 2.5 })
+        end
+    end
+elseif cmd == "resetslots" or cmd == "defaultslots" then
+    AnimationEngine.ResetRadialSlots()
+    SafeNotify({ Title = "Roda Radial", Content = "Slots restaurados para o padrão!", Duration = 2.5 })
+elseif cmd == "c" or cmd == "radial" or cmd == "wheel" then ToggleRadialMenu()
+    elseif cmd == "copy" or cmd == "copyskin" then
+        local targetName = args[1]
+        if targetName then
+            local targets = TargetParser.FindPlayers(targetName)
+            if #targets > 0 then SkinEngine.ClonePlayerSkin(targets[1]) end
+        end
+    elseif cmd == "skin" or cmd == "morph" then
+        local targetId = args[1]
+        if targetId then SkinEngine.ApplyByUserId(targetId) end
+    elseif cmd == "headless" then SkinEngine.ToggleHeadless(true)
+    elseif cmd == "unheadless" then SkinEngine.ToggleHeadless(false)
+    elseif cmd == "korblox" then SkinEngine.ToggleKorblox(true)
+    elseif cmd == "unkorblox" then SkinEngine.ToggleKorblox(false)
+    elseif cmd == "unskin" or cmd == "resetskin" then SkinEngine.ResetAvatar()
+    end
+end
+
+CmdInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        DispatchCommand(CmdInput.Text)
+        CmdInput.Text = ""
+        ToggleCmdBar(false)
+    end
+end)
+
+-- ====================================================================
+-- SISTEMA DE HOTKEYS GLOBAIS (2x W, 2x Space, R, M, K, C, X, ;)
+-- ====================================================================
+local lastWTime = 0
+local isDoubleTapSprinting = false
+local wasSpeedActiveBeforeSprint = false
+local lastSpaceTime = 0
+
+RegisterLoop("Quick_Actions_InputBegan", UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    local now = tick()
+
+    -- 1. Double Tap W -> Sprint 25
+    if input.KeyCode == Enum.KeyCode.W then
+        if (now - lastWTime) <= 0.32 then
+            if not isDoubleTapSprinting then
+                wasSpeedActiveBeforeSprint = HubState.Movement.SpeedActive
+            end
+            isDoubleTapSprinting = true
+            HubState.Movement.Speed = 25
+            HubState.Movement.SpeedActive = true
+            MovementEngine.ApplySpeed()
+        end
+        lastWTime = now
+
+    -- 2. Double Tap Espaço -> Voo Suave 70
+    elseif input.KeyCode == Enum.KeyCode.Space then
+        if (now - lastSpaceTime) <= 0.35 then
+            local willFly = not HubState.Movement.FlightActive
+            if willFly then HubState.Movement.FlightSpeed = 70 end
+            MovementEngine.SetFlight(willFly)
+            lastSpaceTime = 0
+        else
+            lastSpaceTime = now
+        end
+
+    -- 3. Tecla R -> Alternar X-Ray
+    elseif input.KeyCode == Enum.KeyCode.R then
+        XRayEngine.Toggle(not HubState.Visuals.XRayActive)
+
+    -- 4. Tecla M -> Alternar MM2 Role ESP
+    elseif input.KeyCode == Enum.KeyCode.M then
+        MM2Engine.ToggleRoleESP(not HubState.MM2.RoleESP)
+
+    -- 5. Tecla K -> Drop Kick Fling Instantâneo
+    elseif input.KeyCode == Enum.KeyCode.K then
+        FlingEngine.PerformDropKick()
+
+    -- 6. Tecla C -> Roda Radial de Danças
+    elseif input.KeyCode == Enum.KeyCode.C then
+        ToggleRadialMenu()
+
+    -- 7. Tecla X -> Parar Danças
+    elseif input.KeyCode == Enum.KeyCode.X then
+        AnimationEngine.Stop()
+
+    -- 8. Tecla ';' ou '\'' -> Command Bar Retrátil
+    elseif input.KeyCode == Enum.KeyCode.Semicolon or input.KeyCode == Enum.KeyCode.Quote then
+        ToggleCmdBar()
+    end
+end))
+
+RegisterLoop("Quick_Actions_InputEnded", UserInputService.InputEnded:Connect(function(input, gpe)
+    if input.KeyCode == Enum.KeyCode.W and isDoubleTapSprinting then
+        isDoubleTapSprinting = false
+        if not wasSpeedActiveBeforeSprint then
+            HubState.Movement.SpeedActive = false
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed = HubState.Movement.DefaultSpeed end
+        end
+    end
+end))
+
+-- Atalhos numéricos da Roda Radial (1 a 8)
+RegisterLoop("UI_Radial_Number_Hotkeys", UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe or not HubState.Radial.Visible then return end
+    local numKeys = {
+        [Enum.KeyCode.One] = 1, [Enum.KeyCode.KeypadOne] = 1,
+        [Enum.KeyCode.Two] = 2, [Enum.KeyCode.KeypadTwo] = 2,
+        [Enum.KeyCode.Three] = 3, [Enum.KeyCode.KeypadThree] = 3,
+        [Enum.KeyCode.Four] = 4, [Enum.KeyCode.KeypadFour] = 4,
+        [Enum.KeyCode.Five] = 5, [Enum.KeyCode.KeypadFive] = 5,
+        [Enum.KeyCode.Six] = 6, [Enum.KeyCode.KeypadSix] = 6,
+        [Enum.KeyCode.Seven] = 7, [Enum.KeyCode.KeypadSeven] = 7,
+        [Enum.KeyCode.Eight] = 8, [Enum.KeyCode.KeypadEight] = 8
+    }
+    local slotNum = numKeys[input.KeyCode]
+    if slotNum and CurrentRadialEmotes[slotNum] then
+        local em = CurrentRadialEmotes[slotNum]
+        if em and em.ID then AnimationEngine.PlayRaw(em.ID, em.Name) end
+        ToggleRadialMenu(false)
+    end
+end))
+
+-- ====================================================================
+-- CARREGAMENTO DA INTERFACE RAYFIELD (SÍNTESE COMPLETA DAS 8 ABAS)
+-- ====================================================================
+-- ====================================================================
+
+-- CARREGAMENTO RESILIENTE DA RAYFIELD UI (V14 DEFINITIVE)
+
+-- ====================================================================
+local Rayfield = nil
+
+local function SafeNotify(config)
+    if Rayfield and typeof(Rayfield.Notify) == "function" then
+        pcall(function() Rayfield:Notify(config) end)
+    end
+end
+
+local function LoadRayfieldLibrary()
+    local sources = {
+        'https://sirius.menu/rayfield',
+        'https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua',
+        'https://raw.githubusercontent.com/shlexware/Rayfield/main/source'
+    }
+    for _, url in ipairs(sources) do
+        local ok, lib = pcall(function()
+            local str = nil
+            pcall(function() str = game:HttpGet(url, true) end)
+            if not str or #str == 0 then
+                pcall(function() str = game:HttpGet(url) end)
+            end
+            if (not str or #str == 0) and typeof(request) == "function" then
+                pcall(function()
+                    local res = request({Url = url, Method = "GET"})
+                    if res and res.Body then str = res.Body end
+                end)
+            end
+            if (not str or #str == 0) and typeof(http_request) == "function" then
+                pcall(function()
+                    local res = http_request({Url = url, Method = "GET"})
+                    if res and res.Body then str = res.Body end
+                end)
+            end
+            if str and #str > 0 and typeof(loadstring) == "function" then
+                local fn = loadstring(str)
+                if typeof(fn) == "function" then
+                    return fn()
+                end
+            end
+            return nil
+        end)
+        if ok and lib and type(lib) == "table" and lib.CreateWindow then
+            rawset(_G, "Rayfield", lib)
+            rawset(shared, "Rayfield", lib)
+            return lib
+        end
+    end
+    return nil
+end
+
+Rayfield = LoadRayfieldLibrary()
+if not Rayfield then
+    warn("[GoHub V14] Falha crítica: não foi possível carregar a biblioteca Rayfield.")
+    pcall(function()
+        local sg = game:GetService("StarterGui")
+        if sg and typeof(sg.SetCore) == "function" then
+            sg:SetCore("SendNotification", {
+                Title = "GoHub V14 — Erro de Rede",
+                Text = "Não foi possível carregar a Rayfield UI via CDN. Verifique seu executor ou conexão.",
+                Duration = 8
+            })
+        end
+    end)
+    return
+end
+
+local themeSavePath = "GoHubV14/SelectedTheme.txt"
+
+local function SaveTheme(themeName)
+    pcall(function()
+        if typeof(writefile) == "function" then
+            if typeof(isfolder) == "function" and not isfolder("GoHubV14") then
+                if typeof(makefolder) == "function" then makefolder("GoHubV14") end
+            end
+            writefile(themeSavePath, tostring(themeName))
+        end
+    end)
+end
+
+local function GetSavedTheme()
+    local theme = "Bloom"
+    pcall(function()
+        if typeof(readfile) == "function" and typeof(isfile) == "function" and isfile(themeSavePath) then
+            theme = readfile(themeSavePath)
+        end
+    end)
+    return theme
+end
+
+local initialTheme = GetSavedTheme()
 
 local Window = Rayfield:CreateWindow({
-    Name = "GoHub V13 — Definitive Rayfield & Shader Suite",
+    Name = "GoHub V14 — Definitive Universal Suite",
     Icon = 135247969077372,
-    LoadingTitle = "GoHub V13",
-    LoadingSubtitle = "by dj (GoHub Suite)",
+    LoadingTitle = "GoHub V14",
+    LoadingSubtitle = "por dj (Universal Suite & Audio Engine)",
     Theme = initialTheme,
     DisableRayfieldPrompts = true,
     DisableBuildWarnings = false,
@@ -8450,6 +11039,114 @@ TabUniversal:CreateButton({
 -- ====================================================================
 -- ABA 2: JOGADORES (SELEÇÃO, TP, SPECTATE, ADVANCED FLING)
 -- ====================================================================
+
+TabUniversal:CreateSection("Movimentacao Avancada 2.0 (V14)")
+
+TabUniversal:CreateToggle({
+    Name = "Spider / Wall Climb (Escalar Paredes)",
+    CurrentValue = false,
+    Flag = "univ_wall_climb_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Movement and _G.GoHubV14Movement.Movement then
+            _G.GoHubV14Movement.Movement.SetWallClimb(Value)
+        end
+    end,
+})
+
+TabUniversal:CreateToggle({
+    Name = "Grappling Hook Duplo (Gancho Fisico)",
+    CurrentValue = false,
+    Flag = "univ_grapple_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Movement and _G.GoHubV14Movement.Movement then
+            if Value then
+                _G.GoHubV14Movement.Movement.FireGrapple()
+            else
+                _G.GoHubV14Movement.Movement.CancelGrapple()
+            end
+        end
+    end,
+})
+
+TabUniversal:CreateToggle({
+    Name = "Bhop Strafe (AirAccelerate estilo Source)",
+    CurrentValue = false,
+    Flag = "univ_bhop_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Movement and _G.GoHubV14Movement.Movement then
+            _G.GoHubV14Movement.Movement.SetBhop(Value)
+        end
+    end,
+})
+
+TabUniversal:CreateButton({
+    Name = "Dash Omnidirecional (Impulso com Rastros)",
+    Callback = function()
+        if _G.GoHubV14Movement and _G.GoHubV14Movement.Movement then
+            _G.GoHubV14Movement.Movement.PerformDash()
+        end
+    end,
+})
+
+TabUniversal:CreateToggle({
+    Name = "Super Pulo Procedural",
+    CurrentValue = false,
+    Flag = "univ_super_jump_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Movement and _G.GoHubV14Movement.Movement then
+            _G.GoHubV14Movement.Movement.SetSuperJump(Value)
+        end
+    end,
+})
+
+TabUniversal:CreateSection("Automacao & Coleta Universal (V14)")
+
+TabUniversal:CreateToggle({
+    Name = "Coleta Automatica Universal (Moedas, Gemas, Tokens)",
+    CurrentValue = false,
+    Flag = "univ_auto_collect_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Movement and _G.GoHubV14Movement.Collector then
+            _G.GoHubV14Movement.Collector.SetAutoCollect(Value)
+        end
+    end,
+})
+
+TabUniversal:CreateSection("Interface Flutuante & HUD Tatico (V14)")
+
+TabUniversal:CreateToggle({
+    Name = "Dock Flutuante Movel (Capsula Retratil)",
+    CurrentValue = false,
+    Flag = "univ_capsule_dock_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.DockEngine then
+            _G.GoHubV14GameTrolling.DockEngine.Toggle(Value)
+        end
+    end,
+})
+
+TabUniversal:CreateToggle({
+    Name = "HUD de Telemetria (FPS 1% Lows, Ping ms, Mem MB)",
+    CurrentValue = false,
+    Flag = "univ_telemetry_hud_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.TelemetryEngine then
+            _G.GoHubV14GameTrolling.TelemetryEngine.Toggle(Value)
+        end
+    end,
+})
+
+TabUniversal:CreateToggle({
+    Name = "Mira Dinamica (Crosshair & Hitmarkers)",
+    CurrentValue = false,
+    Flag = "univ_crosshair_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.CrosshairEngine then
+            _G.GoHubV14GameTrolling.CrosshairEngine.Toggle(Value)
+        end
+    end,
+})
+
 local TabPlayers = Window:CreateTab("Jogadores", nil)
 TabPlayers:CreateSection("Seleção & Teleporte ao Alvo")
 
@@ -8617,6 +11314,60 @@ TabPlayers:CreateToggle({
 -- ====================================================================
 -- ABA 3: SKINS & MORPHS (REPLICAÇÃO, CLONADOR, USER ID, ITENS LENDÁRIOS)
 -- ====================================================================
+
+TabPlayers:CreateSection("Trolling & Fisicas Especiais 2.0 (V14)")
+
+TabPlayers:CreateToggle({
+    Name = "Vortex / Buraco Negro Fling (Disco de Acrecao)",
+    CurrentValue = false,
+    Flag = "players_vortex_fling_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.TrollingEngine then
+            if Value then
+                _G.GoHubV14GameTrolling.TrollingEngine.StartVortexFling(HubState.SelectedPlayer)
+            else
+                _G.GoHubV14GameTrolling.TrollingEngine.StopVortexFling()
+            end
+        end
+    end,
+})
+
+TabPlayers:CreateToggle({
+    Name = "Morte Falsa Reversivel (Ragdoll Fisico)",
+    CurrentValue = false,
+    Flag = "players_fake_death_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.TrollingEngine then
+            _G.GoHubV14GameTrolling.TrollingEngine.ToggleFakeDeath(Value)
+        end
+    end,
+})
+
+TabPlayers:CreateToggle({
+    Name = "Carro Invisivel & Aura de Rapto",
+    CurrentValue = false,
+    Flag = "players_kidnap_aura_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.TrollingEngine then
+            _G.GoHubV14GameTrolling.TrollingEngine.ToggleKidnapAura(Value)
+        end
+    end,
+})
+
+TabPlayers:CreateButton({
+    Name = "Criar Clone Decoy em Fuga (Furtividade)",
+    Callback = function()
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.TrollingEngine then
+            _G.GoHubV14GameTrolling.TrollingEngine.SpawnDecoy()
+            SafeNotify({
+                Title = "Decoy Ativado",
+                Content = "Clone decoy enviado e jogador camuflado por 8 segundos.",
+                Duration = 4,
+            })
+        end
+    end,
+})
+
 local TabSkins = Window:CreateTab("Skins", nil)
 TabSkins:CreateSection("Clonagem de Jogadores")
 
@@ -8753,7 +11504,7 @@ TabMM2:CreateToggle({
 -- ====================================================================
 
 -- ==============================================================================
--- TAB: AUDIO & MUSIC ENGINE 2.0 (R1 PRIORITIZED)
+-- TAB: AUDIO & MUSIC ENGINE 2.0 (R1 PRIORITIZADO)
 -- ==============================================================================
 local TabAudio = Window:CreateTab("Audio & Visualizer", nil)
 
@@ -9022,6 +11773,53 @@ TabVisuals:CreateToggle({
     end,
 })
 
+
+TabMM2:CreateSection("Combate Tatico MM2 2.0 (V14)")
+
+TabMM2:CreateToggle({
+    Name = "Auto-Shoot Balistico Interceptador (Compensacao de Ping)",
+    CurrentValue = false,
+    Flag = "mm2_ballistic_autoshoot_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+            _G.GoHubV14GameTrolling.MM2Engine.AutoShoot(Value)
+        end
+    end,
+})
+
+TabMM2:CreateToggle({
+    Name = "Radar Minimapa 2D na Tela",
+    CurrentValue = false,
+    Flag = "mm2_minimap_radar_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+            _G.GoHubV14GameTrolling.MM2Engine.ToggleRadar(Value)
+        end
+    end,
+})
+
+TabMM2:CreateToggle({
+    Name = "Alerta de Mira & Espectadores (Stare HUD)",
+    CurrentValue = false,
+    Flag = "mm2_stare_hud_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+            _G.GoHubV14GameTrolling.MM2Engine.ToggleStareHUD(Value)
+        end
+    end,
+})
+
+TabMM2:CreateToggle({
+    Name = "Auto-Dodge de Facas Arremessadas",
+    CurrentValue = false,
+    Flag = "mm2_knife_autododge_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+            _G.GoHubV14GameTrolling.MM2Engine.ToggleKnifeDodge(Value)
+        end
+    end,
+})
+
 local TabDances = Window:CreateTab("Danças", nil)
 
 local allPresetDances = {}
@@ -9055,6 +11853,70 @@ TabDances:CreateSlider({
 TabDances:CreateParagraph({
     Title = "Roda Radial de Emotes [Tecla 'C']",
     Content = "Pressione a tecla 'C' a qualquer momento para abrir a Roda Circular de Emotes com seus 8 slots favoritos! Use as teclas numéricas 1 a 8 para ativar na hora."
+})
+
+
+TabVisuals:CreateSection("Optica & Pos-Processamento 2.0 (V14)")
+
+TabVisuals:CreateToggle({
+    Name = "Autofocus Dinamico Depth of Field (DoF 20Hz)",
+    CurrentValue = false,
+    Flag = "visuals_autofocus_dof_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Lighting and _G.GoHubV14Lighting.SetAutofocusDoF then
+            _G.GoHubV14Lighting.SetAutofocusDoF(Value)
+        end
+    end,
+})
+
+TabVisuals:CreateToggle({
+    Name = "Motion Blur por Velocidade Angular",
+    CurrentValue = false,
+    Flag = "visuals_motion_blur_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Lighting and _G.GoHubV14Lighting.SetMotionBlur then
+            _G.GoHubV14Lighting.SetMotionBlur(Value)
+        end
+    end,
+})
+
+TabVisuals:CreateDropdown({
+    Name = "Presets Cinematograficos V14",
+    Options = {"Nenhum", "Cyberpunk Neon", "Sunset Noir", "VHS Retro", "Midnight Glow", "Golden Hour"},
+    CurrentOption = {"Nenhum"},
+    Flag = "visuals_cinematic_presets_dropdown",
+    Callback = function(Option)
+        local preset = Option[1] or Option
+        if _G.GoHubV14Lighting and _G.GoHubV14Lighting.ApplyPreset then
+            if preset ~= "Nenhum" then
+                _G.GoHubV14Lighting.ApplyPreset(preset)
+            else
+                _G.GoHubV14Lighting.RestoreBaseline()
+            end
+        end
+    end,
+})
+
+TabVisuals:CreateToggle({
+    Name = "Ciclo Dia/Noite Geodesico",
+    CurrentValue = false,
+    Flag = "visuals_day_night_cycle_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Lighting and _G.GoHubV14Lighting.SetTimeCycle then
+            _G.GoHubV14Lighting.SetTimeCycle(Value)
+        end
+    end,
+})
+
+TabVisuals:CreateToggle({
+    Name = "Particulas Atmosfericas (Motes com Deteccao de Teto)",
+    CurrentValue = false,
+    Flag = "visuals_camera_motes_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Lighting and _G.GoHubV14Lighting.SetCameraMotes then
+            _G.GoHubV14Lighting.SetCameraMotes(Value)
+        end
+    end,
 })
 
 -- ====================================================================
@@ -9499,6 +12361,39 @@ TabWaypoints:CreateButton({
 -- ====================================================================
 -- ABA 8: COMANDOS & ATALHOS RÁPIDOS
 -- ====================================================================
+
+TabWaypoints:CreateSection("Gravador de Rotas & Macros (V14)")
+
+TabWaypoints:CreateToggle({
+    Name = "Gravar Rota ao Vivo (Amostragem Inteligente)",
+    CurrentValue = false,
+    Flag = "waypoints_record_route_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Movement and _G.GoHubV14Movement.Macro then
+            if Value then
+                _G.GoHubV14Movement.Macro.StartRecording()
+            else
+                _G.GoHubV14Movement.Macro.StopRecording()
+            end
+        end
+    end,
+})
+
+TabWaypoints:CreateToggle({
+    Name = "Reproduzir Rota em Loop Continuo",
+    CurrentValue = false,
+    Flag = "waypoints_playback_route_toggle",
+    Callback = function(Value)
+        if _G.GoHubV14Movement and _G.GoHubV14Movement.Macro then
+            if Value then
+                _G.GoHubV14Movement.Macro.StartPlayback()
+            else
+                _G.GoHubV14Movement.Macro.StopPlayback()
+            end
+        end
+    end,
+})
+
 local TabCommands = Window:CreateTab("Comandos", nil)
 TabCommands:CreateSection("Barra de Comandos Retrátil")
 
@@ -9722,15 +12617,16 @@ TabSettings:CreateButton({
 })
 
 SafeNotify({
-    Title = "GoHub V13 Pronto!",
+    Title = "GoHub V14 Pronto!",
     Content = "Todas as 8 abas e motores sintetizados com sucesso para Rayfield.",
     Duration = 5
 })
 
-print("[GoHub V13] Rayfield Synthesis & Background Engine Initialized 100% Successfully.")
+print("[GoHub V14] Rayfield Synthesis & Background Engine Initialized 100% Successfully.")
+
 
 -- ==============================================================================
--- 7. V14 ENGINES INITIALIZATION & ZERO-ALLOC LOOP REGISTRATION
+-- RUNTIME UPDATE LOOPS & INITIALIZATION (V14 ENGINES)
 -- ==============================================================================
 task.spawn(function()
     pcall(function()
@@ -9750,29 +12646,21 @@ task.spawn(function()
 end)
 
 RunService.RenderStepped:Connect(function(dt)
-    if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.TelemetryEngine then
-        _G.GoHubV14GameTrolling.TelemetryEngine.Update(dt)
-    end
-    if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.CrosshairEngine then
-        _G.GoHubV14GameTrolling.CrosshairEngine.Update(dt)
-    end
-    if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
-        _G.GoHubV14GameTrolling.MM2Engine.UpdateRadar()
-    end
-    if _G.GoHubV14Movement and _G.GoHubV14Movement.UpdateMovement then
-        _G.GoHubV14Movement.UpdateMovement(dt)
-    end
-    if _G.GoHubV14Shaders and _G.GoHubV14Shaders.UpdateEffects then
-        _G.GoHubV14Shaders.UpdateEffects(dt)
-    end
+    pcall(function()
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.TelemetryEngine then
+            _G.GoHubV14GameTrolling.TelemetryEngine.Update(dt)
+        end
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.CrosshairEngine then
+            _G.GoHubV14GameTrolling.CrosshairEngine.Update(dt)
+        end
+        if _G.GoHubV14GameTrolling and _G.GoHubV14GameTrolling.MM2Engine then
+            _G.GoHubV14GameTrolling.MM2Engine.UpdateRadar()
+        end
+        if _G.GoHubV14Movement and _G.GoHubV14Movement.UpdateMovement then
+            _G.GoHubV14Movement.UpdateMovement(dt)
+        end
+        if _G.GoHubV14Lighting and _G.GoHubV14Lighting.UpdateEffects then
+            _G.GoHubV14Lighting.UpdateEffects(dt)
+        end
+    end)
 end)
-
-Rayfield:Notify({
-    Title = "GoHub V14 Carregado!",
-    Content = "Suite universal V14 ativa. Motor de Audio, Shaders 2.0, Movimento e MM2 prontos.",
-    Duration = 5.5,
-    Image = 135247969077372,
-})
-
-print("[GoHub V14] Sistema inicializado com sucesso. Zero regressoes, 100% de paridade.")
-return GoHubV14Core
