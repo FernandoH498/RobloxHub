@@ -163,26 +163,26 @@ local MusicPlayer = {
     EndedConnection = nil,
 
     Playlist = {
-        { Id = 1843588737, Title = "Chill Phonk", Artist = "GoHub Beats", Duration = 120, DefaultVolume = 0.6 },
-        { Id = 1843404009, Title = "Vaporwave Beat", Artist = "Synthwave Lab", Duration = 145, DefaultVolume = 0.5 },
-        { Id = 1838457617, Title = "Cyberpunk Synthwave", Artist = "Neon Runner", Duration = 160, DefaultVolume = 0.55 },
-        { Id = 1848354536, Title = "Lofi Hip Hop Study", Artist = "Chilled Cow", Duration = 130, DefaultVolume = 0.5 },
-        { Id = 7028506547, Title = "Hyperpop Drive", Artist = "Glitch Overdrive", Duration = 110, DefaultVolume = 0.45 },
-        { Id = 9048375035, Title = "Midnight City Ambient", Artist = "Nightflow", Duration = 175, DefaultVolume = 0.5 },
-        { Id = 1845554017, Title = "Future Bass Energy", Artist = "Sub Zero", Duration = 140, DefaultVolume = 0.55 },
-        { Id = 5410086218, Title = "Brazilian Phonk Drift", Artist = "Montagem", Duration = 125, DefaultVolume = 0.6 },
-        { Id = 130972023, Title = "Retro Arc Laser", Artist = "Classic Roblox", Duration = 90, DefaultVolume = 0.4 },
-        { Id = 1841285324, Title = "Electro House Pulse", Artist = "Audio Lab", Duration = 150, DefaultVolume = 0.5 }
+        { Id = 1843404009, Title = "Vaporwave Synth Beat", Artist = "GoHub Beats", Duration = 145, DefaultVolume = 0.6 },
+        { Id = 1837849285, Title = "Phonk Action Drift", Artist = "Synthwave Lab", Duration = 120, DefaultVolume = 0.65 },
+        { Id = 1848354536, Title = "Lofi Hip Hop Study", Artist = "Chilled Cow", Duration = 130, DefaultVolume = 0.55 },
+        { Id = 1841285324, Title = "Electro House Pulse", Artist = "Audio Lab", Duration = 150, DefaultVolume = 0.6 },
+        { Id = 1845554017, Title = "Future Bass Energy", Artist = "Sub Zero", Duration = 140, DefaultVolume = 0.6 },
+        { Id = 1838457617, Title = "Cyberpunk Neon Drive", Artist = "Neon Runner", Duration = 160, DefaultVolume = 0.6 },
+        { Id = 7028506547, Title = "Hyperpop Overdrive", Artist = "Glitch Lab", Duration = 110, DefaultVolume = 0.55 },
+        { Id = 9043887091, Title = "Midnight Ambient Chill", Artist = "Nightflow", Duration = 175, DefaultVolume = 0.55 },
+        { Id = 1843588737, Title = "Classic Chill Beats", Artist = "Roblox Audio", Duration = 120, DefaultVolume = 0.6 },
+        { Id = 5410086218, Title = "Brazilian Phonk Extreme", Artist = "Montagem", Duration = 125, DefaultVolume = 0.65 }
     }
 }
 
--- Resolve or create Sound parent container inside SoundService (persists across respawns)
+-- Resolve or create Sound parent container (Camera or SoundService for 100% audible 2D playback)
 local function getAudioContainer()
     if MusicPlayer.Container and MusicPlayer.Container.Parent then
         return MusicPlayer.Container
     end
 
-    local parent = SoundService or Workspace
+    local parent = (Workspace and Workspace.CurrentCamera) or SoundService or Workspace
     local folder = parent:FindFirstChild("GoHubV14_AudioContainer")
     if not folder then
         folder = Instance.new("Folder")
@@ -350,8 +350,8 @@ local function createSoundInstance(name)
     sound.Name = name
     sound.Archivable = false
     sound.Looped = false
-    sound.RollOffMode = Enum.RollOffMode.Linear
-    sound.Volume = 0
+    sound.Volume = MusicPlayer.Volume
+    sound.PlaybackSpeed = MusicPlayer.PlaybackSpeed
     pcall(function() sound.Parent = container end)
     return sound
 end
@@ -500,24 +500,18 @@ function AudioEngine.PlayTrack(trackIdOrIndex, customVol, customSpeed)
         end
     end
 
-    -- Create new active sound instance
+    -- Create new active sound instance with immediate volume
     local newSound = createSoundInstance("GoHub_ActiveTrack_" .. tostring(targetTrack.Id))
     newSound.SoundId = assetString
     newSound.PlaybackSpeed = MusicPlayer.PlaybackSpeed
-    newSound.Volume = 0
+    newSound.Volume = targetVolume
+    newSound.Looped = (MusicPlayer.LoopMode == "LoopTrack")
     attachDSPChain(newSound)
 
     MusicPlayer.ActiveSound = newSound
     MusicPlayer.IsPlaying = true
 
     pcall(function() newSound:Play() end)
-
-    if TweenService then
-        local inTween = TweenService:Create(newSound, TweenInfo.new(tau, Enum.EasingStyle.Linear), { Volume = targetVolume })
-        inTween:Play()
-    else
-        newSound.Volume = targetVolume
-    end
 
     MusicPlayer.EndedConnection = newSound.Ended:Connect(onTrackEnded)
     return targetTrack
@@ -537,6 +531,37 @@ function AudioEngine.Resume()
     elseif #MusicPlayer.Playlist > 0 then
         AudioEngine.PlayTrack(MusicPlayer.ActiveTrackIndex)
     end
+end
+
+function AudioEngine.Stop()
+    MusicPlayer.IsPlaying = false
+    if MusicPlayer.ActiveSound then
+        pcall(function()
+            MusicPlayer.ActiveSound:Stop()
+            MusicPlayer.ActiveSound:Destroy()
+        end)
+        MusicPlayer.ActiveSound = nil
+    end
+    if MusicPlayer.FadingSound then
+        pcall(function()
+            MusicPlayer.FadingSound:Stop()
+            MusicPlayer.FadingSound:Destroy()
+        end)
+        MusicPlayer.FadingSound = nil
+    end
+end
+
+function AudioEngine.TogglePlay()
+    if MusicPlayer.IsPlaying then
+        AudioEngine.Pause()
+    else
+        AudioEngine.Resume()
+    end
+    return MusicPlayer.IsPlaying
+end
+
+function AudioEngine.GetCurrentTrack()
+    return MusicPlayer.Playlist[MusicPlayer.ActiveTrackIndex] or MusicPlayer.Playlist[1]
 end
 
 function AudioEngine.NextTrack()

@@ -796,7 +796,19 @@ local HighlightPool = {
 
 function HighlightPool.Init(guiRoot)
     if HighlightPool.Initialized then return end
-    HighlightPool.Container = guiRoot or Polyfills.GetSafeGuiRoot()
+
+    local container = nil
+    pcall(function()
+        if Workspace then
+            container = Workspace:FindFirstChild("GoHubV14_HighlightContainer")
+            if not container then
+                container = Instance.new("Folder")
+                container.Name = "GoHubV14_HighlightContainer"
+                container.Parent = Workspace
+            end
+        end
+    end)
+    HighlightPool.Container = container or (Workspace and Workspace.CurrentCamera) or guiRoot or Polyfills.GetSafeGuiRoot()
 
     table.clear(HighlightPool.Instances)
     table.clear(HighlightPool.Slots)

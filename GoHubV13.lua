@@ -1350,19 +1350,157 @@ end
 local MM2Engine = {}
 local MM2RoleFolder = Instance.new("Folder")
 MM2RoleFolder.Name = "GoHub_MM2_Roles"
-pcall(function() MM2RoleFolder.Parent = GuiRoot end)
+pcall(function() MM2RoleFolder.Parent = (Workspace or GuiRoot) end)
 
 local MM2CoinFolder = Instance.new("Folder")
 MM2CoinFolder.Name = "GoHub_MM2_Coins"
-pcall(function() MM2CoinFolder.Parent = GuiRoot end)
+pcall(function() MM2CoinFolder.Parent = (Workspace or GuiRoot) end)
 
 local MM2HitboxFolder = Instance.new("Folder")
 MM2HitboxFolder.Name = "GoHub_MM2_Hitboxes"
-pcall(function() MM2HitboxFolder.Parent = GuiRoot end)
+pcall(function() MM2HitboxFolder.Parent = (Workspace or GuiRoot) end)
 
 local MM2RoleDataCache = {}
+local MM2DroppedGun = nil
 local lastRemotePoll = 0
 local remoteListenersSetup = false
+local playerCharConnections = {}
+
+-- Dicionario exaustivo de armas MM2 (Godlies, Antigos, Cromas, Natal, Halloween)
+local KNIFE_NAMES = {
+    ["knife"] = true, ["defaultknife"] = true, ["blade"] = true, ["dagger"] = true,
+    ["sword"] = true, ["scythe"] = true, ["pitchfork"] = true, ["katana"] = true,
+    ["slasher"] = true, ["cleaver"] = true, ["cutter"] = true, ["axe"] = true,
+    ["saw"] = true, ["sickle"] = true, ["bat"] = true, ["spear"] = true,
+    ["corrupt"] = true, ["icebreaker"] = true, ["candy"] = true, ["lugercane"] = true,
+    ["ghostblade"] = true, ["boneblade"] = true, ["hallowblade"] = true, ["plasmablade"] = true,
+    ["darksword"] = true, ["heat"] = true, ["tides"] = true, ["pixel"] = true,
+    ["spider"] = true, ["clockwork"] = true, ["fang"] = true, ["frostbite"] = true,
+    ["icedragon"] = true, ["winter"] = true, ["chill"] = true, ["flames"] = true,
+    ["pumpking"] = true, ["gingerbread"] = true, ["battleaxe"] = true, ["deathshard"] = true,
+    ["hallows"] = true, ["nebula"] = true, ["waves"] = true, ["candleflame"] = true,
+    ["icewing"] = true, ["vampire"] = true, ["heartblade"] = true, ["cookieblade"] = true,
+    ["gingerscythe"] = true, ["hallowscythe"] = true, ["elderwood scythe"] = true,
+    ["spectral"] = true, ["splitter"] = true, ["ghost"] = true, ["traveller"] = true
+}
+
+local GUN_NAMES = {
+    ["gun"] = true, ["defaultgun"] = true, ["revolver"] = true, ["pistol"] = true,
+    ["blaster"] = true, ["luger"] = true, ["shotgun"] = true, ["laser"] = true,
+    ["crossbow"] = true, ["bow"] = true, ["glock"] = true, ["amerilaser"] = true,
+    ["old glory"] = true, ["plasmabeam"] = true, ["gingermint"] = true, ["swirly gun"] = true,
+    ["ocean"] = true, ["lightbringer"] = true, ["darkbringer"] = true, ["iceblaster"] = true,
+    ["red luger"] = true, ["green luger"] = true, ["ginger luger"] = true, ["sugar"] = true,
+    ["shark"] = true, ["flamethrower"] = true, ["watergun"] = true, ["harvester"] = true,
+    ["elderwood revolver"] = true, ["vampires edge"] = true, ["hallowgun"] = true
+}
+
+local function isKnifeItem(item)
+    if not item or not item:IsA("Tool") then return false end
+    local n = item.Name:lower()
+    if KNIFE_NAMES[n] then return true end
+    for kName in pairs(KNIFE_NAMES) do
+        if n:find(kName, 1, true) then return true end
+    end
+    if item:FindFirstChild("KnifeServer") or item:FindFirstChild("KnifeScript") or item:FindFirstChild("KnifeClient")
+       or item:FindFirstChild("Slash") or item:FindFirstChild("Stab") or item:FindFirstChild("Throw")
+       or item:GetAttribute("WeaponType") == "Knife" or item:GetAttribute("Type") == "Knife" then
+        return true
+    end
+    local handle = item:FindFirstChild("Handle")
+    if handle and (handle:FindFirstChild("Slash") or handle:FindFirstChild("Stab") or handle:FindFirstChild("Throw")) then
+        return true
+    end
+    return false
+end
+
+local function isGunItem(item)
+    if not item or not item:IsA("Tool") then return false end
+    local n = item.Name:lower()
+    if GUN_NAMES[n] then return true end
+    for gName in pairs(GUN_NAMES) do
+        if n:find(gName, 1, true) then return true end
+    end
+    if item:FindFirstChild("GunServer") or item:FindFirstChild("GunScript") or item:FindFirstChild("GunClient")
+       or item:FindFirstChild("Shoot") or item:FindFirstChild("Fire") or item:FindFirstChild("Reload")
+       or item:GetAttribute("WeaponType") == "Gun" or item:GetAttribute("Type") == "Gun" then
+        return true
+    end
+    local handle = item:FindFirstChild("Handle")
+    if handle and (handle:FindFirstChild("Shoot") or handle:FindFirstChild("GunDrop") or handle:FindFirstChild("Fire")) then
+        return true
+    end
+    return false
+end
+
+local function connectPlayerWeapons(p)
+    if not p or playerCharConnections[p] then return end
+
+    local function scanChar(char)
+        if not char then return end
+        for _, child in ipairs(char:GetChildren()) do
+            if isKnifeItem(child) then
+                MM2RoleDataCache[p.Name:lower()] = "MURDER"
+                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
+            elseif isGunItem(child) then
+                local r = MM2DroppedGun and "HEROI" or "SHERIFE"
+                MM2RoleDataCache[p.Name:lower()] = r
+                MM2RoleDataCache[tostring(p.UserId)] = r
+            end
+        end
+
+        char.ChildAdded:Connect(function(child)
+            if isKnifeItem(child) then
+                MM2RoleDataCache[p.Name:lower()] = "MURDER"
+                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
+            elseif isGunItem(child) then
+                local r = MM2DroppedGun and "HEROI" or "SHERIFE"
+                MM2RoleDataCache[p.Name:lower()] = r
+                MM2RoleDataCache[tostring(p.UserId)] = r
+            end
+        end)
+    end
+
+    local function scanBackpack(bp)
+        if not bp then return end
+        for _, child in ipairs(bp:GetChildren()) do
+            if isKnifeItem(child) then
+                MM2RoleDataCache[p.Name:lower()] = "MURDER"
+                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
+            elseif isGunItem(child) then
+                MM2RoleDataCache[p.Name:lower()] = "SHERIFE"
+                MM2RoleDataCache[tostring(p.UserId)] = "SHERIFE"
+            end
+        end
+        bp.ChildAdded:Connect(function(child)
+            if isKnifeItem(child) then
+                MM2RoleDataCache[p.Name:lower()] = "MURDER"
+                MM2RoleDataCache[tostring(p.UserId)] = "MURDER"
+            elseif isGunItem(child) then
+                MM2RoleDataCache[p.Name:lower()] = "SHERIFE"
+                MM2RoleDataCache[tostring(p.UserId)] = "SHERIFE"
+            end
+        end)
+    end
+
+    if p.Character then scanChar(p.Character) end
+    local cConn = p.CharacterAdded:Connect(scanChar)
+    local bp = p:FindFirstChild("Backpack")
+    if bp then scanBackpack(bp) end
+    local bpConn = p.ChildAdded:Connect(function(c)
+        if c:IsA("Backpack") then scanBackpack(c) end
+    end)
+
+    playerCharConnections[p] = { cConn, bpConn }
+end
+
+local function disconnectPlayerWeapons(p)
+    local conns = playerCharConnections[p]
+    if conns then
+        for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
+        playerCharConnections[p] = nil
+    end
+end
 
 local function SetupMM2RemoteListeners()
     if remoteListenersSetup then return end
@@ -1413,84 +1551,148 @@ end
 
 local function PollMM2Remotes()
     local now = tick()
-    if now - lastRemotePoll < 1.0 then return end
+    if now - lastRemotePoll < 2.0 then return end
     lastRemotePoll = now
 
-    pcall(function()
-        local repStorage = game:GetService("ReplicatedStorage")
-        local remotesFolder = repStorage:FindFirstChild("Remotes")
-        local gameplayFolder = remotesFolder and remotesFolder:FindFirstChild("Gameplay")
-        local getPlayerData = (gameplayFolder and gameplayFolder:FindFirstChild("GetPlayerData"))
-            or (remotesFolder and remotesFolder:FindFirstChild("GetPlayerData"))
-            or repStorage:FindFirstChild("GetPlayerData", true)
+    task.spawn(function()
+        pcall(function()
+            local repStorage = game:GetService("ReplicatedStorage")
+            local remotesFolder = repStorage:FindFirstChild("Remotes")
+            local gameplayFolder = remotesFolder and remotesFolder:FindFirstChild("Gameplay")
+            local getPlayerData = (gameplayFolder and gameplayFolder:FindFirstChild("GetPlayerData"))
+                or (remotesFolder and remotesFolder:FindFirstChild("GetPlayerData"))
+                or repStorage:FindFirstChild("GetPlayerData", true)
 
-        if getPlayerData and getPlayerData:IsA("RemoteFunction") then
-            local data = getPlayerData:InvokeServer()
-            if type(data) == "table" then
-                for k, v in pairs(data) do
-                    local playerName = type(k) == "string" and k or (type(v) == "table" and (v.Player or v.Name or v.Username))
-                    local roleStr = type(v) == "table" and (v.Role or v.role) or (type(v) == "string" and v)
-                    if playerName and roleStr and type(roleStr) == "string" then
-                        local lower = roleStr:lower()
-                        if lower:find("murd") then
-                            MM2RoleDataCache[tostring(playerName):lower()] = "MURDER"
-                        elseif lower:find("sher") then
-                            MM2RoleDataCache[tostring(playerName):lower()] = "SHERIFE"
-                        elseif lower:find("hero") then
-                            MM2RoleDataCache[tostring(playerName):lower()] = "HEROI"
-                        elseif lower:find("innoc") then
-                            MM2RoleDataCache[tostring(playerName):lower()] = "INOCENTE"
+            if getPlayerData and getPlayerData:IsA("RemoteFunction") then
+                local data = getPlayerData:InvokeServer()
+                if type(data) == "table" then
+                    for k, v in pairs(data) do
+                        local playerName = type(k) == "string" and k or (type(v) == "table" and (v.Player or v.Name or v.Username))
+                        local roleStr = type(v) == "table" and (v.Role or v.role) or (type(v) == "string" and v)
+                        if playerName and roleStr and type(roleStr) == "string" then
+                            local lower = roleStr:lower()
+                            if lower:find("murd") then
+                                MM2RoleDataCache[tostring(playerName):lower()] = "MURDER"
+                            elseif lower:find("sher") then
+                                MM2RoleDataCache[tostring(playerName):lower()] = "SHERIFE"
+                            elseif lower:find("hero") then
+                                MM2RoleDataCache[tostring(playerName):lower()] = "HEROI"
+                            elseif lower:find("innoc") then
+                                MM2RoleDataCache[tostring(playerName):lower()] = "INOCENTE"
+                            end
                         end
                     end
                 end
             end
-        end
+        end)
     end)
 end
 
 local function DetectRole(p)
-    if not p or not p.Character then return nil end
+    if not p then return nil end
 
     local pNameLower = p.Name:lower()
-    local pDisplayNameLower = p.DisplayName:lower()
-    local cachedRole = MM2RoleDataCache[pNameLower] or MM2RoleDataCache[pDisplayNameLower]
+    local pUserIdStr = tostring(p.UserId)
+    local cachedRole = MM2RoleDataCache[pNameLower] or MM2RoleDataCache[pUserIdStr]
 
     if cachedRole == "MURDER" then
-        return "MURDER", HubState.Theme.Murderer
+        return "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
     elseif cachedRole == "SHERIFE" then
-        return "SHERIFE", HubState.Theme.Sheriff
+        return "SHERIFE", HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255)
     elseif cachedRole == "HEROI" then
         return "HEROI", Color3.fromRGB(255, 215, 0)
     end
 
-    local hasKnife, hasGun = false, false
-    local function checkItem(item)
-        if item:IsA("Tool") then
-            local n = item.Name:lower()
-            if n == "knife" or n:find("scythe") or n:find("pitchfork") or n:find("blade") or n:find("dagger") or n:find("sword") then
-                hasKnife = true
-            end
-            if n == "gun" or n == "revolver" or n:find("blaster") or n:find("luger") or n:find("pistol") or n:find("shotgun") then
-                hasGun = true
+    if p.Character then
+        for _, item in ipairs(p.Character:GetChildren()) do
+            if isKnifeItem(item) then
+                MM2RoleDataCache[pNameLower] = "MURDER"
+                MM2RoleDataCache[pUserIdStr] = "MURDER"
+                return "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
+            elseif isGunItem(item) then
+                local r = MM2DroppedGun and "HEROI" or "SHERIFE"
+                MM2RoleDataCache[pNameLower] = r
+                MM2RoleDataCache[pUserIdStr] = r
+                local col = (r == "HEROI") and Color3.fromRGB(255, 215, 0) or (HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255))
+                return r, col
             end
         end
     end
 
-    for _, item in ipairs(p.Character:GetChildren()) do checkItem(item) end
     local bp = p:FindFirstChild("Backpack")
-    if bp then for _, item in ipairs(bp:GetChildren()) do checkItem(item) end end
-
-    if hasKnife then
-        MM2RoleDataCache[pNameLower] = "MURDER"
-        return "MURDER", HubState.Theme.Murderer
+    if bp then
+        for _, item in ipairs(bp:GetChildren()) do
+            if isKnifeItem(item) then
+                MM2RoleDataCache[pNameLower] = "MURDER"
+                MM2RoleDataCache[pUserIdStr] = "MURDER"
+                return "MURDER", HubState.Theme.Murderer or Color3.fromRGB(255, 35, 35)
+            elseif isGunItem(item) then
+                MM2RoleDataCache[pNameLower] = "SHERIFE"
+                MM2RoleDataCache[pUserIdStr] = "SHERIFE"
+                return "SHERIFE", HubState.Theme.Sheriff or Color3.fromRGB(40, 140, 255)
+            end
+        end
     end
 
-    if hasGun then
-        MM2RoleDataCache[pNameLower] = "SHERIFE"
-        return "SHERIFE", HubState.Theme.Sheriff
-    end
+    return "INOCENTE", HubState.Theme.Innocent or Color3.fromRGB(40, 220, 100)
+end
 
-    return "INOCENTE", HubState.Theme.Innocent
+local droppedGunESP = nil
+
+local function UpdateGunDropESP()
+    local drop = Workspace:FindFirstChild("GunDrop") or Workspace:FindFirstChild("Gun", true)
+    if drop and (drop:IsA("BasePart") or (drop:IsA("Model") and drop.PrimaryPart)) then
+        MM2DroppedGun = drop
+        local targetPart = drop:IsA("BasePart") and drop or drop.PrimaryPart
+        if not droppedGunESP or not droppedGunESP.Billboard or not droppedGunESP.Billboard.Parent then
+            if droppedGunESP then
+                if HubState.ReleaseHighlight then
+                    HubState.ReleaseHighlight(droppedGunESP.Highlight)
+                elseif _G.HighlightPool and _G.HighlightPool.ReleaseHighlight then
+                    _G.HighlightPool.ReleaseHighlight(droppedGunESP.Highlight)
+                else
+                    pcall(function() droppedGunESP.Highlight:Destroy() end)
+                end
+                pcall(function() droppedGunESP.Billboard:Destroy() end)
+            end
+
+            local hl = (HubState.AcquireHighlight and HubState.AcquireHighlight(drop, 1, Color3.fromRGB(255, 215, 0), Color3.fromRGB(255, 255, 255)))
+                or (_G.HighlightPool and _G.HighlightPool.AcquireHighlight and _G.HighlightPool.AcquireHighlight(drop, 1, Color3.fromRGB(255, 215, 0), Color3.fromRGB(255, 255, 255)))
+
+            local bb = Instance.new("BillboardGui")
+            bb.Name = "MM2_GunDrop_BB"
+            bb.Adornee = targetPart
+            bb.Size = UDim2.new(0, 160, 0, 40)
+            bb.StudsOffset = Vector3.new(0, 2.0, 0)
+            bb.AlwaysOnTop = true
+            pcall(function() bb.Parent = MM2RoleFolder end)
+
+            local txt = Instance.new("TextLabel", bb)
+            txt.Size = UDim2.new(1, 0, 1, 0)
+            txt.BackgroundTransparency = 1
+            txt.TextColor3 = Color3.fromRGB(255, 215, 0)
+            txt.Font = Enum.Font.GothamBold
+            txt.TextSize = 13
+            txt.TextStrokeTransparency = 0.2
+            txt.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            txt.Text = "★ ARMA CAÍDA [PEGAR!] ★"
+
+            droppedGunESP = { Highlight = hl, Billboard = bb }
+        end
+    else
+        MM2DroppedGun = nil
+        if droppedGunESP then
+            if HubState.ReleaseHighlight then
+                HubState.ReleaseHighlight(droppedGunESP.Highlight)
+            elseif _G.HighlightPool and _G.HighlightPool.ReleaseHighlight then
+                _G.HighlightPool.ReleaseHighlight(droppedGunESP.Highlight)
+            else
+                pcall(function() droppedGunESP.Highlight:Destroy() end)
+            end
+            pcall(function() droppedGunESP.Billboard:Destroy() end)
+            droppedGunESP = nil
+        end
+    end
 end
 
 function MM2Engine.ToggleRoleESP(enabled)
@@ -1499,16 +1701,42 @@ function MM2Engine.ToggleRoleESP(enabled)
         DropLoop("MM2_RoleLoop")
         MM2RoleFolder:ClearAllChildren()
         table.clear(MM2RoleDataCache)
+        if droppedGunESP then
+            if HubState.ReleaseHighlight then
+                HubState.ReleaseHighlight(droppedGunESP.Highlight)
+            elseif _G.HighlightPool and _G.HighlightPool.ReleaseHighlight then
+                _G.HighlightPool.ReleaseHighlight(droppedGunESP.Highlight)
+            else
+                pcall(function() droppedGunESP.Highlight:Destroy() end)
+            end
+            pcall(function() droppedGunESP.Billboard:Destroy() end)
+            droppedGunESP = nil
+        end
+        for p, _ in pairs(playerCharConnections) do
+            disconnectPlayerWeapons(p)
+        end
         return
     end
 
     SetupMM2RemoteListeners()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            connectPlayerWeapons(p)
+        end
+    end
+
     local playerESP = {}
 
     local function cleanupESP(p)
         local data = playerESP[p]
         if data then
-            pcall(function() data.Highlight:Destroy() end)
+            if HubState.ReleaseHighlight then
+                HubState.ReleaseHighlight(data.Highlight)
+            elseif _G.HighlightPool and _G.HighlightPool.ReleaseHighlight then
+                _G.HighlightPool.ReleaseHighlight(data.Highlight)
+            else
+                pcall(function() data.Highlight:Destroy() end)
+            end
             pcall(function() data.Billboard:Destroy() end)
             playerESP[p] = nil
         end
@@ -1517,35 +1745,31 @@ function MM2Engine.ToggleRoleESP(enabled)
     RegisterLoop("MM2_RoleLoop", RunService.Heartbeat:Connect(function()
         if not HubState.MM2.RoleESP then return end
         PollMM2Remotes()
+        UpdateGunDropESP()
 
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Head") then
                 local hum = p.Character:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
+                    connectPlayerWeapons(p)
                     local role, color = DetectRole(p)
                     local data = playerESP[p]
 
-                    if not data or not data.Highlight.Parent or not data.Billboard.Parent then
+                    if not data or not data.Highlight or not data.Billboard or not data.Billboard.Parent then
                         cleanupESP(p)
 
-                        local hl = Instance.new("Highlight")
-                        hl.Name = "MM2_HL_" .. p.Name
-                        hl.Adornee = p.Character
-                        hl.FillColor = color
-                        hl.OutlineColor = color
-                        hl.FillTransparency = (role == "INOCENTE") and 0.65 or 0.4
-                        hl.OutlineTransparency = 0.1
-                        hl.Parent = MM2RoleFolder
+                        local roleHl = (HubState.AcquireHighlight and HubState.AcquireHighlight(p.Character, 2, color, color))
+                            or (_G.HighlightPool and _G.HighlightPool.AcquireHighlight and _G.HighlightPool.AcquireHighlight(p.Character, 2, color, color))
 
                         local bgui = Instance.new("BillboardGui")
                         bgui.Name = "MM2_BB_" .. p.Name
                         bgui.Adornee = p.Character.Head
-                        bgui.Size = UDim2.new(0, 120, 0, 40)
-                        bgui.StudsOffset = Vector3.new(0, 2.5, 0)
+                        bgui.Size = UDim2.new(0, 140, 0, 40)
+                        bgui.StudsOffset = Vector3.new(0, 2.6, 0)
                         bgui.AlwaysOnTop = true
-                        bgui.Parent = MM2RoleFolder
+                        pcall(function() bgui.Parent = MM2RoleFolder end)
 
-                        local txt = Instance.new("TextLabel")
+                        local txt = Instance.new("TextLabel", bgui)
                         txt.Size = UDim2.new(1, 0, 1, 0)
                         txt.BackgroundTransparency = 1
                         txt.TextColor3 = color
@@ -1554,20 +1778,21 @@ function MM2Engine.ToggleRoleESP(enabled)
                         txt.TextStrokeTransparency = 0.2
                         txt.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
                         txt.Text = "[" .. role .. "] " .. p.DisplayName
-                        txt.Parent = bgui
 
-                        playerESP[p] = { Highlight = hl, Billboard = bgui, Label = txt, CurrentRole = role }
+                        playerESP[p] = { Highlight = roleHl, Billboard = bgui, Label = txt, CurrentRole = role }
                     else
-                        if data.Highlight.Adornee ~= p.Character then
+                        if data.Highlight and data.Highlight.Adornee ~= p.Character then
                             data.Highlight.Adornee = p.Character
                             data.Billboard.Adornee = p.Character.Head
                         end
 
                         if data.CurrentRole ~= role then
                             data.CurrentRole = role
-                            data.Highlight.FillColor = color
-                            data.Highlight.OutlineColor = color
-                            data.Highlight.FillTransparency = (role == "INOCENTE") and 0.65 or 0.4
+                            if data.Highlight then
+                                data.Highlight.FillColor = color
+                                data.Highlight.OutlineColor = color
+                                data.Highlight.FillTransparency = (role == "INOCENTE") and 0.65 or 0.35
+                            end
                             data.Label.TextColor3 = color
                             data.Label.Text = "[" .. role .. "] " .. p.DisplayName
                         end
@@ -1581,7 +1806,10 @@ function MM2Engine.ToggleRoleESP(enabled)
         end
 
         for p, _ in pairs(playerESP) do
-            if not p.Parent then cleanupESP(p) end
+            if not p.Parent then
+                cleanupESP(p)
+                disconnectPlayerWeapons(p)
+            end
         end
     end))
 end
