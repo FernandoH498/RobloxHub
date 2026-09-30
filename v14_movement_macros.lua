@@ -383,6 +383,17 @@ pcall(function()
     spiderRayParams.IgnoreWater = true
 end)
 
+local function getSpiderRayParams()
+    if not spiderRayParams then
+        pcall(function()
+            spiderRayParams = RaycastParams.new()
+            spiderRayParams.FilterType = Enum.RaycastFilterType.Exclude
+            spiderRayParams.IgnoreWater = true
+        end)
+    end
+    return spiderRayParams
+end
+
 local SpiderClimbState = {
     Active = false,
     LinearVelocity = nil,
@@ -641,6 +652,17 @@ pcall(function()
     collectorOverlapParams.IgnoreWater = true
 end)
 
+local function getCollectorOverlapParams()
+    if not collectorOverlapParams then
+        pcall(function()
+            collectorOverlapParams = OverlapParams.new()
+            collectorOverlapParams.FilterType = Enum.RaycastFilterType.Exclude
+            collectorOverlapParams.IgnoreWater = true
+        end)
+    end
+    return collectorOverlapParams
+end
+
 local function isCollectibleCandidate(instance)
     if not instance or not instance.Parent then return false end
     if instance:FindFirstChildOfClass("TouchTransmitter") then
@@ -701,19 +723,13 @@ function MovementEngine.SetWallClimb(enabled)
         local moveDir = currentHum.MoveDirection
         local castDir = (moveDir.Magnitude > 0 and moveDir or currentHrp.CFrame.LookVector) * SpiderClimbState.RayDistance
 
-        if not spiderRayParams then
-            pcall(function()
-                spiderRayParams = RaycastParams.new()
-                spiderRayParams.FilterType = Enum.RaycastFilterType.Exclude
-                spiderRayParams.IgnoreWater = true
-            end)
-        end
-        if spiderRayParams then
+        local rp = getSpiderRayParams()
+        if rp then
             spiderFilterTable[1] = currentChar
-            spiderRayParams.FilterDescendantsInstances = spiderFilterTable
+            rp.FilterDescendantsInstances = spiderFilterTable
         end
 
-        local rayResult = Workspace:Raycast(currentHrp.Position, castDir, spiderRayParams)
+        local rayResult = Workspace:Raycast(currentHrp.Position, castDir, rp)
         if rayResult and rayResult.Normal then
             SpiderClimbState.IsTouchingWall = true
             SpiderClimbState.LastNormal = rayResult.Normal

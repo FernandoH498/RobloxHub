@@ -5958,6 +5958,17 @@ pcall(function()
     spiderRayParams.IgnoreWater = true
 end)
 
+local function getSpiderRayParams()
+    if not spiderRayParams then
+        pcall(function()
+            spiderRayParams = RaycastParams.new()
+            spiderRayParams.FilterType = Enum.RaycastFilterType.Exclude
+            spiderRayParams.IgnoreWater = true
+        end)
+    end
+    return spiderRayParams
+end
+
 local SpiderClimbState = {
     Active = false,
     LinearVelocity = nil,
@@ -6208,6 +6219,25 @@ local CollectorState = {
     ThrottleInterval = 0.1,
 }
 
+local collectorOverlapParams = nil
+local collectorFilterTable = {}
+pcall(function()
+    collectorOverlapParams = OverlapParams.new()
+    collectorOverlapParams.FilterType = Enum.RaycastFilterType.Exclude
+    collectorOverlapParams.IgnoreWater = true
+end)
+
+local function getCollectorOverlapParams()
+    if not collectorOverlapParams then
+        pcall(function()
+            collectorOverlapParams = OverlapParams.new()
+            collectorOverlapParams.FilterType = Enum.RaycastFilterType.Exclude
+            collectorOverlapParams.IgnoreWater = true
+        end)
+    end
+    return collectorOverlapParams
+end
+
 local function isCollectibleCandidate(instance)
     if not instance or not instance.Parent then return false end
     if instance:FindFirstChildOfClass("TouchTransmitter") then
@@ -6268,19 +6298,13 @@ function MovementEngine.SetWallClimb(enabled)
         local moveDir = currentHum.MoveDirection
         local castDir = (moveDir.Magnitude > 0 and moveDir or currentHrp.CFrame.LookVector) * SpiderClimbState.RayDistance
 
-        if not spiderRayParams then
-            pcall(function()
-                spiderRayParams = RaycastParams.new()
-                spiderRayParams.FilterType = Enum.RaycastFilterType.Exclude
-                spiderRayParams.IgnoreWater = true
-            end)
-        end
-        if spiderRayParams then
+        local rp = getSpiderRayParams()
+        if rp then
             spiderFilterTable[1] = currentChar
-            spiderRayParams.FilterDescendantsInstances = spiderFilterTable
+            rp.FilterDescendantsInstances = spiderFilterTable
         end
 
-        local rayResult = Workspace:Raycast(currentHrp.Position, castDir, spiderRayParams)
+        local rayResult = Workspace:Raycast(currentHrp.Position, castDir, rp)
         if rayResult and rayResult.Normal then
             SpiderClimbState.IsTouchingWall = true
             SpiderClimbState.LastNormal = rayResult.Normal
@@ -6746,8 +6770,10 @@ function MovementEngine.SetNoclip(enabled)
         HubState.RegisterLoop("GoHub_Noclip", RunService.Stepped:Connect(function()
             local char = LocalPlayer and LocalPlayer.Character
             if char then
-                for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
+                local parts = getCachedCharacterParts(char)
+                for i = 1, #parts do
+                    local part = parts[i]
+                    if part and part.Parent then
                         part.CanCollide = false
                     end
                 end
@@ -6757,8 +6783,10 @@ function MovementEngine.SetNoclip(enabled)
         HubState.DropLoop("GoHub_Noclip")
         local char = LocalPlayer and LocalPlayer.Character
         if char then
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            local parts = getCachedCharacterParts(char)
+            for i = 1, #parts do
+                local part = parts[i]
+                if part and part.Parent and part.Name ~= "HumanoidRootPart" then
                     part.CanCollide = true
                 end
             end
@@ -7135,8 +7163,29 @@ function CollectorEngine.SetAutoCollect(enabled, radius)
         local collectedThisTick = 0
         local scanRadius = CollectorState.Radius
 
-        -- Scan descendants in Workspace
-        for _, instance in ipairs(Workspace:GetDescendants()) do
+        -- Scan candidates via spatial query if available, fallback to Workspace scan
+        local candidateParts = nil
+        if Workspace and typeof(Workspace.GetPartBoundsInRadius) == "function" then
+            if not collectorOverlapParams then
+                pcall(function()
+                    collectorOverlapParams = OverlapParams.new()
+                    collectorOverlapParams.FilterType = Enum.RaycastFilterType.Exclude
+                    collectorOverlapParams.IgnoreWater = true
+                end)
+            end
+            if collectorOverlapParams then
+                collectorFilterTable[1] = char
+                collectorOverlapParams.FilterDescendantsInstances = collectorFilterTable
+            end
+            pcall(function()
+                candidateParts = Workspace:GetPartBoundsInRadius(hrpPos, scanRadius, collectorOverlapParams)
+            end)
+        end
+        if not candidateParts then
+            candidateParts = Workspace:GetDescendants()
+        end
+
+        for _, instance in ipairs(candidateParts) do
             if collectedThisTick >= CollectorState.MaxBatchSize then
                 break
             end
@@ -7147,11 +7196,14 @@ function CollectorEngine.SetAutoCollect(enabled, radius)
                     local transmitter = instance:FindFirstChildOfClass("TouchTransmitter")
                     if transmitter then
                         safeFireTouch(hrp, instance, 0)
-                        task.wait(0.015)
-                        safeFireTouch(hrp, instance, 1)
+                        task.delay(0.015, function()
+                            if instance and instance.Parent and hrp and hrp.Parent then
+                                safeFireTouch(hrp, instance, 1)
+                            end
+                        end)
                         collectedThisTick = collectedThisTick + 1
                     else
-                        local prompt = instance:FindFirstChildOfClass("ProximityPrompt") or instance.Parent:FindFirstChildOfClass("ProximityPrompt")
+                        local prompt = instance:FindFirstChildOfClass("ProximityPrompt") or (instance.Parent and instance.Parent:FindFirstChildOfClass("ProximityPrompt"))
                         if prompt and prompt.Enabled then
                             safeFirePrompt(prompt)
                             collectedThisTick = collectedThisTick + 1
@@ -7309,10 +7361,33 @@ local exportTable = {
     Waypoints = WaypointEngine,
     Math = MathEngine,
     HubState = HubState,
+    MovementEngine = MovementEngine,
+    MacroEngine = MacroEngine,
+    CollectorEngine = CollectorEngine,
+    WaypointEngine = WaypointEngine,
 }
 
 rawset(_G, "GoHubV14Movement", exportTable)
 rawset(shared, "GoHubV14Movement", exportTable)
+rawset(_G, "MovementEngine", MovementEngine)
+rawset(shared, "MovementEngine", MovementEngine)
+rawset(_G, "MacroEngine", MacroEngine)
+rawset(shared, "MacroEngine", MacroEngine)
+rawset(_G, "CollectorEngine", CollectorEngine)
+rawset(shared, "CollectorEngine", CollectorEngine)
+rawset(_G, "WaypointEngine", WaypointEngine)
+rawset(shared, "WaypointEngine", WaypointEngine)
+
+if GlobalCore then
+    GlobalCore.Movement = MovementEngine
+    GlobalCore.Macro = MacroEngine
+    GlobalCore.Collector = CollectorEngine
+    GlobalCore.Waypoints = WaypointEngine
+    GlobalCore.MovementEngine = MovementEngine
+    GlobalCore.MacroEngine = MacroEngine
+    GlobalCore.CollectorEngine = CollectorEngine
+    GlobalCore.WaypointEngine = WaypointEngine
+end
 
 -- [GoHubV14 Monolith Module Return] return exportTable
 
